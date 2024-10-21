@@ -1,0 +1,5 @@
+FROM mysql:latest
+
+ENV MYSQL_ROOT_PASSWORD=Webster2024!
+
+COPY ./voice_assistants.sql ./docker-entrypoint-initdb.d

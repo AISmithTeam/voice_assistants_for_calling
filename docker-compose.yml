@@ -1,0 +1,15 @@
+version: "3"
+services:
+    server:
+        image: voice_assistants_server
+        links: 
+            - db
+        ports:
+            - "5000:5000"
+    db:
+        container_name: voice_assistants_database
+        image: voice_assistants_database
+        ports:
+            - "32001:3306"
+        volumes:
+            - ./database:/docker-entrypoint-initdb.d/:ro
