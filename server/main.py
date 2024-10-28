@@ -23,11 +23,7 @@ from sqlalchemy.orm import Session
 from user_account import User, get_db
 from jwt.exceptions import InvalidTokenError
 
-
-NGROK_AUTH_TOKEN = os.getenv("NGROK_AUTH_TOKEN", "")
-NGROK_EDGE = os.getenv("NGROK_EDGE", "edge:edghts_")
-
-load_dotenv()
+load_dotenv(override=True)
 
 # Set up Twilio client
 twilio_account_sid = os.getenv('TWILIO_ACCOUNT_SID')

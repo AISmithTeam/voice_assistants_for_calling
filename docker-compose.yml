@@ -1,4 +1,12 @@
 services:
+    db:
+        image: voice_assistants_database
+        ports:
+            - "32001:3306"
+        environment:
+            MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD}
+        volumes:
+            - ./database:/docker-entrypoint-initdb.d/:ro
     nginx:
         image: voice_assistants_nginx
         ports:
@@ -12,20 +20,11 @@ services:
         ports:
             - "5000:5000"
         environment:
-            - OPENAI_API_KEY=${OPENAI_API_KEY}
-            - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
-            - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
-            - MYSQL_DB=${MYSQL_DB}
-            - MYSQL_USER=${MYSQL_USER}
-            - MYSQL_PASSWORD=${MYSQL_PASSWORD}
-            - MYSQL_HOST=${MYSQL_HOST}
-            - MYSQL_PORT=${MYSQL_PORT}
-    db:
-        container_name: ${MYSQL_HOST}
-        image: voice_assistants_database
-        ports:
-            - "32001:3306"
-        environment:
-            - MYSQL_ROOT_PASSWORD=${MYSQL_PASSWORD}
-        volumes:
-            - ./database:/docker-entrypoint-initdb.d/:ro
+            OPENAI_API_KEY: ${OPENAI_API_KEY}
+            TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
+            TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
+            MYSQL_DB: ${MYSQL_DB}
+            MYSQL_USER: ${MYSQL_USER}
+            MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+            MYSQL_HOST: ${MYSQL_HOST}
+            MYSQL_PORT: ${MYSQL_PORT}   

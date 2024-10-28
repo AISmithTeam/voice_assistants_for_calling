@@ -1,5 +1,5 @@
 FROM mysql:latest
 
-ENV MYSQL_PASSWORD=$MYSQL_PASSWORD
+ENV MYSQL_PASSWORD=${MYSQL_PASSWORD}
 
 COPY ./voice_assistants.sql ./docker-entrypoint-initdb.d
