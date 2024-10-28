@@ -1,11 +1,21 @@
 version: "3"
 services:
+    ngrok:
+        image: voice_assistants_ngrok
+        ports:
+            - "5001:5001"
     server:
         image: voice_assistants_server
         links: 
             - db
         ports:
             - "5000:5000"
+        environment:
+            - MYSQL_DB=$MYSQL_DB
+            - MYSQL_USER=$MYSQL_USER
+            - MYSQL_PASSWORD=$MYSQL_PASSWORD
+            - MYSQL_HOST=$MYSQL_HOST
+            - MYSQL_PORT=$MYSQL_PORT
     db:
         container_name: voice_assistants_database
         image: voice_assistants_database

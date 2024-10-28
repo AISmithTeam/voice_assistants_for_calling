@@ -31,11 +31,17 @@ import {
   Grid,
 } from '@chakra-ui/react';
 import { EditIcon, DeleteIcon, InfoIcon } from '@chakra-ui/icons';
+import axios from 'axios';
 
-const Campaigns = ({ assistants = [] }) => {
+const Campaigns = ({ assistants, phoneNumbers }) => {
+  const base_url = '127.0.0.1:5000';
+  const access_token = localStorage.getItem("access_token");
+
   const [campaigns, setCampaigns] = useState([]);
-  const [assistant, setAssistant] = useState('');
+  const [assistantId, setAssistantId] = useState(0);
+  const [assistant, setAssistant] = useState(''); // fixme должно быть имя ассистента, пока промпт
   const [maxCallsToClient, setMaxCallsToClient] = useState(0);
+  const [recallInterval, setRecallInterval] = useState(0);
   const [uploadedFile, setUploadedFile] = useState(null);
   const [uploadStatus, setUploadStatus] = useState('');
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -43,8 +49,12 @@ const Campaigns = ({ assistants = [] }) => {
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('18:00');
   const [campaignType, setCampaignType] = useState('');
-  const [numbers, setNumbers] = useState('');
+  const [numberId, setNumberId] = useState(0);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [campaignStatus, setCampaignStatus] = useState('');
   const [isMobile] = useMediaQuery("(max-width: 768px)");
+
+  // TODO извлечение существующих кампаний при загрузке страницы
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -56,21 +66,46 @@ const Campaigns = ({ assistants = [] }) => {
       startTime,
       endTime,
       campaignType,
-      numbers
+      campaignStatus,
+      phoneNumber
     };
+
+    axios
+      .post(`http://${base_url}/campaigns?jwt_token=${access_token}`, {
+        assistant_id: assistantId,
+        phone_number_id: numberId,
+        campaign_type: campaignType,
+        start_time: startTime,
+        end_time: endTime,
+        max_recalls: maxCallsToClient,
+        recall_interval: recallInterval,
+        campaign_status: "stopped"
+      })
+      .then(function (response) {
+        setAssistant(assistants.find( (assistant) => assistant.assistant_id === response.data.assistant_id ).systemPrompt);
+        setPhoneNumber(phoneNumbers.find( (phoneNumber) => phoneNumber.phone_number_id === response.phone_number_id ).phoneNumber);
+        setCampaignType(response.campaign_type);
+        setStartTime(response.start_time);
+        setEndTime(response.end_time);
+        setMaxCallsToClient(response.max_recalls);
+        setRecallInterval(response.recall_interval);
+        setCampaignStatus(response.campaign_status);
+      });
+
     setCampaigns([...campaigns, newCampaign]);
-    setAssistant('');
-    setMaxCallsToClient(0);
-    setUploadedFile(null);
-    setUploadStatus('');
-    setUploadProgress(0);
-    setDaysOfWeek([]);
-    setStartTime('09:00');
-    setEndTime('18:00');
-    setCampaignType('');
-    setNumbers('');
+    //setAssistant('');
+    //setMaxCallsToClient(0);
+    //setUploadedFile(null);
+    //setUploadStatus('');
+    //setUploadProgress(0);
+    //setDaysOfWeek([]);
+    //setStartTime('09:00');
+    //setEndTime('18:00');
+    //setCampaignType('');
+    //setNumbers('');
   };
 
+  console.log(assistants[0]);
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (file && (file.type === 'text/csv' || file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
@@ -112,10 +147,10 @@ const Campaigns = ({ assistants = [] }) => {
                   <InfoIcon ml={2} />
                 </Tooltip>
               </FormLabel>
-              <Select size="sm" value={assistant} onChange={(e) => setAssistant(e.target.value)}>
+              <Select size="sm" value={assistantId} onChange={(e) => setAssistantId(e.target.value)}>
                 <option value="">Select an assistant</option>
                 {assistants.map((assistant, index) => (
-                  <option key={index} value={assistant.systemPrompt}>
+                  <option key={index} value={assistant.assistant_id}>
                     {assistant.systemPrompt.substring(0, 30)}...
                   </option>
                 ))}
@@ -136,8 +171,23 @@ const Campaigns = ({ assistants = [] }) => {
                 </NumberInputStepper>
               </NumberInput>
             </FormControl>
+            <FormControl isRequired>
+              <FormLabel mb={1}>
+                Recalls Interval
+                <Tooltip label="Set the recall interval in seconds" placement="top-start">
+                  <InfoIcon ml={2} />
+                </Tooltip>
+              </FormLabel>
+              <NumberInput size="sm" value={recallInterval} onChange={(value) => setRecallInterval(Number(value))}>
+                <NumberInputField />
+                <NumberInputStepper>
+                  <NumberIncrementStepper />
+                  <NumberDecrementStepper />
+                </NumberInputStepper>
+              </NumberInput>
+            </FormControl>
           </SimpleGrid>
-          <FormControl isRequired>
+          <FormControl>
             <FormLabel mb={1}>
               Days of Week
               <Tooltip label="Select the days on which the campaign will run" placement="top-start">
@@ -201,12 +251,14 @@ const Campaigns = ({ assistants = [] }) => {
                   <InfoIcon ml={2} />
                 </Tooltip>
               </FormLabel>
-              <Textarea
-                size="sm"
-                value={numbers}
-                onChange={(e) => setNumbers(e.target.value)}
-                placeholder="Enter numbers, separated by commas"
-              />
+              <Select size="sm" value={numberId} onChange={(e) => setNumberId(e.target.value)}>
+                <option value="">Select a Number</option>
+                {phoneNumbers.map((phoneNumber, index) => (
+                  <option key={index} value={phoneNumber.phoneNumberId}>
+                    {phoneNumber.phoneNumber}
+                  </option>
+                ))}
+              </Select>
             </FormControl>
           </SimpleGrid>
           <FormControl>
@@ -257,7 +309,8 @@ const Campaigns = ({ assistants = [] }) => {
                   <Text fontSize="xs"><strong>Days:</strong> {campaign.daysOfWeek.join(', ')}</Text>
                   <Text fontSize="xs"><strong>Time:</strong> {`${campaign.startTime} - ${campaign.endTime}`}</Text>
                   <Text fontSize="xs"><strong>Type:</strong> {campaign.campaignType}</Text>
-                  <Text fontSize="xs"><strong>Numbers:</strong> {campaign.numbers.substring(0, 20)}...</Text>
+                  <Text fontSize="xs"><strong>Number:</strong> {campaign.phoneNumber.substring(0, 20)}...</Text>
+                  <Text fontSize="xs"><strong>Status:</strong> {campaign.campaignStatus}</Text>
                   <Text fontSize="xs"><strong>File:</strong> {campaign.uploadedFile ? campaign.uploadedFile.name : 'No file'}</Text>
                 </CardBody>
                 <CardFooter py={2}>

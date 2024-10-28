@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from "axios";
 import {
   Box,
   Button,
@@ -18,25 +19,64 @@ import {
 } from '@chakra-ui/react';
 import { InfoIcon, EditIcon, DeleteIcon } from '@chakra-ui/icons';
 
+
 const Assistants = () => {
+  const base_url = '127.0.0.1:5000';
+  const access_token = localStorage.getItem("access_token");
+
   const [systemPrompt, setSystemPrompt] = useState('');
   const [voice, setVoice] = useState('');
+  const [assistant_id, setAssistantId] = useState(0);
   const [assistants, setAssistants] = useState([]);
+  // fixme возможно можно убрать и сделать assistants параметром, передаваемым в App.js
+  const fetch_assistants = () => {
+    const url = `http://${base_url}/assistants?jwt_token=${access_token}`;
+    axios
+      .get(url)
+      .then(function (response) {
+        const data = response.data;
+        var user_assistants = [];
+        var assistant_id, systemPrompt, voice;
+        for (var i=0; i < data.length; i++) {
+          assistant_id = data[i].assistant_id;
+          systemPrompt = data[i].prompt;
+          voice = data[i].voice;
+          user_assistants.push( { systemPrompt, voice, assistant_id } );
+        }
+        setAssistants(user_assistants);
+      });
+    };
+
+  useEffect(() => fetch_assistants(), []);
+
+
   // edit to post to assistants endpoint
   const handleSubmit = (e) => {
     e.preventDefault();
-    const newAssistant = { systemPrompt, voice };
+    const newAssistant = { systemPrompt, voice, assistant_id };
     setAssistants([...assistants, newAssistant]);
-    setSystemPrompt('');
-    setVoice('');
+    //setSystemPrompt('');
+    //setVoice('');
+
+    axios
+      .post(`http://${base_url}/assistants?jwt_token=${access_token}`, {
+        prompt: systemPrompt,
+        voice: voice
+      })
+      .then(function (response) {
+        setSystemPrompt(response.prompt);
+        setVoice(response.voice);
+        setAssistantId(response.id);
+      });
+
+    setAssistantId(assistant_id);
   };
 
   return (
-    <Container maxW="container.xl" py={6}>
+    <Container maxW="container.xl" py={6} style={{position: 'absolute', width: "80%"}}>
       <Heading mb={6} fontSize={{ base: "2xl", md: "3xl" }} textAlign="left">Assistants Management</Heading>
-      <Grid templateColumns={{ base: "1fr", lg: "3fr 2fr" }} gap={8}>
-        <GridItem>
-          <VStack spacing={4} align="stretch" as="form" onSubmit={handleSubmit} bg="white" p={6} borderRadius="md" boxShadow="sm">
+      <VStack spacing={4} align="stretch">
+          <VStack spacing={4} align="center" width="70%" as="form" onSubmit={handleSubmit} bg="white" p={6} borderRadius="md" boxShadow="sm">
             <FormControl isRequired>
               <Flex align="center" mb={2}>
                 <FormLabel mb={0} fontSize="md">System Prompt</FormLabel>
@@ -62,17 +102,15 @@ const Assistants = () => {
               </Flex>
               <Select value={voice} onChange={(e) => setVoice(e.target.value)} fontSize="sm">
                 <option value="">Select a voice</option>
-                <option value="voice1">Voice 1</option>
-                <option value="voice2">Voice 2</option>
-                <option value="voice3">Voice 3</option>
+                <option value="nova">Nova</option>
+                <option value="alloy">Alloy</option>
+                <option value="echo">Echo</option>
               </Select>
             </FormControl>
             <Button type="submit" colorScheme="blue" size="md">Create Assistant</Button>
           </VStack>
-        </GridItem>
 
-        <GridItem>
-          <Box bg="gray.50" p={6} borderRadius="md" boxShadow="sm" height="100%">
+          <Box bg="gray.50" p={6} borderRadius="md" boxShadow="sm" height="100%" width="70%">
             <Heading size="md" mb={4} textAlign="left">Existing Assistants</Heading>
             {assistants.length > 0 ? (
               <VStack spacing={4} align="stretch">
@@ -91,8 +129,7 @@ const Assistants = () => {
               <Text fontSize="sm">No assistants created yet.</Text>
             )}
           </Box>
-        </GridItem>
-      </Grid>
+      </VStack>
     </Container>
   );
 };

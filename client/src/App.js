@@ -1,17 +1,66 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import ReactDOM from 'react-dom/client';
 import { ChakraProvider, Box, Flex, Text, VStack, HStack, IconButton, useMediaQuery } from '@chakra-ui/react';
-import { BrowserRouter as Router, Route, Routes, NavLink, useLocation } from 'react-router-dom';
-import { FaHome, FaUser, FaPhone, FaCreditCard, FaCog, FaBars } from 'react-icons/fa';
-import Assistants from './components/Assistants';
-import Campaigns from './components/Campaigns';
-import CallLogs from './components/CallLogs';
-import Billing from './components/Billing';
-import Settings from './components/Settings';
+import { BrowserRouter as Router, Route, Routes, NavLink, useLocation, Navigate } from 'react-router-dom';
+import { FaHome, FaUser, FaPhone, FaCreditCard, FaCog, FaBars, FaClipboardList } from 'react-icons/fa';
+import Login from './Login';
+import Assistants from './Assistants';
+import Campaigns from './Campaigns';
+import CallLogs from './CallLogs';
+import Billing from './Billing';
+import Settings from './Settings';
+import PhoneNumbers from './phoneNumbers';
+import axios from 'axios'; 
 
 function App() {
+  const base_url = '127.0.0.1:5000';
+  const access_token = localStorage.getItem("access_token");
+
   const [assistants, setAssistants] = useState([]);
+  const [phoneNumbers, setPhoneNumbers] = useState([]);
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile] = useMediaQuery("(max-width: 768px)");
+
+  const fetch_assistants = () => {
+    const url = `http://${base_url}/assistants?jwt_token=${access_token}`;
+    axios
+      .get(url)
+      .then(function (response) {
+        const data = response.data;
+        var user_assistants = [];
+        var assistant_id, systemPrompt, voice;
+        for (var i=0; i < data.length; i++) {
+          assistant_id = data[i].id;
+          systemPrompt = data[i].prompt;
+          voice = data[i].voice;
+          user_assistants.push( { systemPrompt, voice, assistant_id } );
+        }
+        setAssistants(user_assistants);
+      });
+    };
+
+  const fetch_numbers = () => {
+    const url = `http://${base_url}/phone-numbers?jwt_token=${access_token}`;
+    axios
+      .get(url)
+      .then(function (response) {
+        const data = response.data;
+        var userPhoneNumbers = [];
+        var phoneNumberId, phoneNumber, accountSid, authToken;
+        for (var i=0; i < data.length; i++) {
+          phoneNumberId = data[i].id;
+          phoneNumber = data[i].phone_number;
+          accountSid = data[i].account_sid;
+          authToken = data[i].auth_token;
+          userPhoneNumbers.push( { accountSid, authToken, phoneNumber, phoneNumberId } );
+        }
+        setPhoneNumbers(userPhoneNumbers);
+      });
+  };
+
+
+  useEffect(() => fetch_assistants(), []);
+  useEffect(() => fetch_numbers(), []);
 
   const addAssistant = (assistant) => {
     setAssistants([...assistants, assistant]);
@@ -22,7 +71,19 @@ function App() {
   };
 
   const TabContent = () => {
-    const location = useLocation();
+    //const location = useLocation();
+    //const [authenticated, setauthenticated] = useState(localStorage.getItem(localStorage.getItem("authenticated")));
+    //const [access_token, setaccesstoken] = useState(localStorage.getItem(localStorage.getItem("access_token")));
+    
+    const loggedInUser = localStorage.getItem("authenticated");
+    //if (loggedInUser) {
+      //setauthenticated(loggedInUser);
+      //setaccesstoken(localStorage.getItem("access_token"));
+    //}
+
+    if (!loggedInUser) {
+      return <Navigate replace to="/login" />;
+    }
 
     return (
       <Flex>
@@ -50,48 +111,50 @@ function App() {
             <Box p={4} display={isSidebarOpen ? "block" : "none"}>
               <Text fontSize="xl" fontWeight="bold" color="#64B5F6">DASHBOARD</Text>
             </Box>
-            <VStack as="nav" spacing={0} align="stretch">
+            <VStack as="nav" spacing={0} align="stretch" height="100%">
               {[
                 { icon: FaHome, label: 'Assistants', path: '/assistants' },
                 { icon: FaUser, label: 'Campaigns', path: '/campaigns' },
-                { icon: FaPhone, label: 'Call Logs', path: '/call-logs' },
+                { icon: FaPhone, label: 'Phone Numbers', path: '/phone-numbers'},
+                { icon: FaClipboardList, label: 'Call Logs', path: '/call-logs' },
                 { icon: FaCreditCard, label: 'Billing', path: '/billing' },
                 { icon: FaCog, label: 'Settings', path: '/settings' },
               ].map(({ icon: Icon, label, path }) => (
-                <NavLink
-                  key={label}
-                  to={path}
-                  style={({ isActive }) => ({
-                    backgroundColor: isActive ? "#171B20" : "transparent",
-                    borderLeft: isActive && isSidebarOpen ? "4px solid #64B5F6" : "none",
-                    textDecoration: "none",
-                    color: "white",
-                  })}
-                >
-                  <HStack
-                    py={4}
-                    px={4}
-                    spacing={3}
-                    _hover={{ bg: "#2C3540" }}
+                  <NavLink
+                    key={label}
+                    to={path}
+                    style={({ isActive }) => ({
+                      backgroundColor: isActive ? "#171B20" : "transparent",
+                      borderLeft: isActive && isSidebarOpen ? "4px solid #64B5F6" : "none",
+                      textDecoration: "none",
+                      color: "white",
+                    })}
                   >
-                    <Icon />
-                    {isSidebarOpen && <Text>{label}</Text>}
-                  </HStack>
-                </NavLink>
+                    <HStack
+                      py={4}
+                      px={4}
+                      spacing={3}
+                      _hover={{ bg: "#2C3540" }}
+                    >
+                      <Icon />
+                      {isSidebarOpen && <Text>{label}</Text>}
+                    </HStack>
+                  </NavLink>
               ))}
             </VStack>
           </VStack>
         </Box>
-        <Box flex={1} overflowY="auto" bg="white" p={4}>
-          <Routes>
-            <Route path="/" element={<Assistants assistants={assistants} addAssistant={addAssistant} />} />
-            <Route path="/assistants" element={<Assistants assistants={assistants} addAssistant={addAssistant} />} />
-            <Route path="/campaigns" element={<Campaigns assistants={assistants} />} />
-            <Route path="/call-logs" element={<CallLogs />} />
-            <Route path="/billing" element={<Billing />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="*" element={<Assistants assistants={assistants} addAssistant={addAssistant} />} />
-          </Routes>
+        <Box flex={1} overflowY="auto" bg="white" p={4} height="100%">
+            <Routes>
+                <Route path="login" element={<Login />} />
+                <Route path="/" element={<Assistants assistants={assistants} addAssistant={addAssistant} />} />
+                <Route path="/assistants" element={<Assistants assistants={assistants} addAssistant={addAssistant} />} />
+                <Route path="/campaigns" element={<Campaigns assistants={assistants} phoneNumbers={phoneNumbers} />} />
+                <Route path="/phone-numbers" element={<PhoneNumbers />} />
+                <Route path="/call-logs" element={<CallLogs />} />
+                <Route path="/billing" element={<Billing />} />
+                <Route path="/settings" element={<Settings />} />
+            </Routes>
         </Box>
       </Flex>
     );
@@ -99,11 +162,9 @@ function App() {
 
   return (
     <ChakraProvider>
-      <Router>
-        <Flex h="100vh" flexDirection={isMobile ? "column" : "row"}>
+        <Flex h="300vh" align="stretch" flexDirection={isMobile ? "column" : "row"}>
           <TabContent />
         </Flex>
-      </Router>
     </ChakraProvider>
   );
 }

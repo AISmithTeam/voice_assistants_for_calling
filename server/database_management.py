@@ -1,7 +1,9 @@
 import mysql.connector
 import datetime
 
+
 class Database:
+    # fixme creatantials must be extacted from the enviroment
     def __init__(self, host, user, password, database) -> None:
         self.connection = mysql.connector.connect(
             user=user,
@@ -10,8 +12,9 @@ class Database:
             database=database,
         )
 
-        self.cursor = self.connection.cursor()
+        self.cursor = self.connection.cursor(buffered=True)
 
+    # fixme remove create_user without auth
     def create_user(
         self,
         email: str,
@@ -59,6 +62,12 @@ class Database:
 
         self.cursor.execute(add_assistant, assistant_data)
         self.connection.commit()
+
+        return {
+            "assistant_id": self.cursor.lastrowid,
+            "prompt": prompt,
+            "voice": voice,
+        }
 
     def get_user_assistants(self, user_id):
         get_assistants = ("SELECT * FROM assistants WHERE user_id=%s")
@@ -121,6 +130,8 @@ class Database:
 
         self.cursor.execute(add_campaign, campaign_data)
         self.connection.commit()
+
+        return campaign_data
 
     def get_user_campaigns(self, user_id):
         get_campaigns = ("SELECT * FROM campaigns WHERE user_id=%s")
