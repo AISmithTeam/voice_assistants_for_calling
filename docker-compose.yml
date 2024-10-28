@@ -1,9 +1,10 @@
-version: "3"
 services:
-    ngrok:
-        image: voice_assistants_ngrok
+    nginx:
+        image: voice_assistants_nginx
         ports:
-            - "5001:5001"
+            - 5001:5001
+        depends_on:
+            - server
     server:
         image: voice_assistants_server
         links: 
@@ -11,15 +12,20 @@ services:
         ports:
             - "5000:5000"
         environment:
-            - MYSQL_DB=$MYSQL_DB
-            - MYSQL_USER=$MYSQL_USER
-            - MYSQL_PASSWORD=$MYSQL_PASSWORD
-            - MYSQL_HOST=$MYSQL_HOST
-            - MYSQL_PORT=$MYSQL_PORT
+            - OPENAI_API_KEY=${OPENAI_API_KEY}
+            - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+            - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+            - MYSQL_DB=${MYSQL_DB}
+            - MYSQL_USER=${MYSQL_USER}
+            - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+            - MYSQL_HOST=${MYSQL_HOST}
+            - MYSQL_PORT=${MYSQL_PORT}
     db:
-        container_name: voice_assistants_database
+        container_name: ${MYSQL_HOST}
         image: voice_assistants_database
         ports:
             - "32001:3306"
+        environment:
+            - MYSQL_ROOT_PASSWORD=${MYSQL_PASSWORD}
         volumes:
             - ./database:/docker-entrypoint-initdb.d/:ro

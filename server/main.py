@@ -23,18 +23,22 @@ from sqlalchemy.orm import Session
 from user_account import User, get_db
 from jwt.exceptions import InvalidTokenError
 
+
+NGROK_AUTH_TOKEN = os.getenv("NGROK_AUTH_TOKEN", "")
+NGROK_EDGE = os.getenv("NGROK_EDGE", "edge:edghts_")
+
 load_dotenv()
 
 # Set up Twilio client
-twilio_account_sid = "ACfd6bd02d2d4665c10826f3cecbb33513"
-twilio_auth_token = "29671eed2df6212199c0b996c567b783"
+twilio_account_sid = os.getenv('TWILIO_ACCOUNT_SID')
+twilio_auth_token = os.getenv('TWILIO_AUTH_TOKEN')
 
 twilio_client = Client(twilio_account_sid, twilio_auth_token)
 database = Database(
-    host="localhost",
-    user="root",
-    password="jhyfn2001",
-    database="VoiceAssistant"
+    host=os.getenv('MYSQL_HOST'),
+    user=os.getenv('MYSQL_USER'),
+    password=os.getenv('MYSQL_PASSWORD'),
+    database=os.getenv('MYSQL_DB'),
 )
 
 # Configuration

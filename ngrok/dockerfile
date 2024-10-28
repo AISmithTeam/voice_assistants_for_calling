@@ -1,5 +1,0 @@
-FROM ngrok/ngrok:latest
-
-WORKDIR /ngrok
-
-CMD [ "ngrok", "http", "5001" ]
