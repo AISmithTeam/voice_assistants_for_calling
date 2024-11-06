@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import ReactDOM from 'react-dom/client';
 import { ChakraProvider, Box, Flex, Text, VStack, HStack, IconButton, useMediaQuery } from '@chakra-ui/react';
-import { BrowserRouter as Router, Route, Routes, NavLink, useLocation, Navigate } from 'react-router-dom';
+import { Route, Routes, NavLink, Navigate } from 'react-router-dom';
 import { FaHome, FaUser, FaPhone, FaCreditCard, FaCog, FaBars, FaClipboardList } from 'react-icons/fa';
 import Login from './Login';
 import Assistants from './Assistants';
@@ -19,48 +18,50 @@ function App() {
   const [assistants, setAssistants] = useState([]);
   const [phoneNumbers, setPhoneNumbers] = useState([]);
   const [isSidebarOpen, setSidebarOpen] = useState(true);
-  const [isMobile] = useMediaQuery("(max-width: 768px)");
+  const [isMobile] = useMediaQuery("(max-width: 768px)");  
+  
+  useEffect(() => {
+    const fetch_assistants = async () => {
+      const url = `http://${base_url}/assistants?jwt_token=${access_token}`;
+      axios
+        .get(url)
+        .then(function (response) {
+          const data = response.data;
+          var user_assistants = [];
+          var assistant_id, systemPrompt, voice;
+          for (var i=0; i < data.length; i++) {
+            assistant_id = data[i].id;
+            systemPrompt = data[i].prompt;
+            voice = data[i].voice;
+            user_assistants.push( { systemPrompt, voice, assistant_id } );
+          }
+          setAssistants(user_assistants);
+        });
+      };
+    fetch_assistants();
+  }, [access_token]);
 
-  const fetch_assistants = () => {
-    const url = `http://${base_url}/assistants?jwt_token=${access_token}`;
-    axios
-      .get(url)
-      .then(function (response) {
-        const data = response.data;
-        var user_assistants = [];
-        var assistant_id, systemPrompt, voice;
-        for (var i=0; i < data.length; i++) {
-          assistant_id = data[i].id;
-          systemPrompt = data[i].prompt;
-          voice = data[i].voice;
-          user_assistants.push( { systemPrompt, voice, assistant_id } );
-        }
-        setAssistants(user_assistants);
-      });
+  useEffect(() => {
+    const fetch_numbers = async () => {
+      const url = `http://${base_url}/phone-numbers?jwt_token=${access_token}`;
+      axios
+        .get(url)
+        .then(function (response) {
+          const data = response.data;
+          var userPhoneNumbers = [];
+          var phoneNumberId, phoneNumber, accountSid, authToken;
+          for (var i=0; i < data.length; i++) {
+            phoneNumberId = data[i].id;
+            phoneNumber = data[i].phone_number;
+            accountSid = data[i].account_sid;
+            authToken = data[i].auth_token;
+            userPhoneNumbers.push( { accountSid, authToken, phoneNumber, phoneNumberId } );
+          }
+          setPhoneNumbers(userPhoneNumbers);
+        });
     };
-
-  const fetch_numbers = () => {
-    const url = `http://${base_url}/phone-numbers?jwt_token=${access_token}`;
-    axios
-      .get(url)
-      .then(function (response) {
-        const data = response.data;
-        var userPhoneNumbers = [];
-        var phoneNumberId, phoneNumber, accountSid, authToken;
-        for (var i=0; i < data.length; i++) {
-          phoneNumberId = data[i].id;
-          phoneNumber = data[i].phone_number;
-          accountSid = data[i].account_sid;
-          authToken = data[i].auth_token;
-          userPhoneNumbers.push( { accountSid, authToken, phoneNumber, phoneNumberId } );
-        }
-        setPhoneNumbers(userPhoneNumbers);
-      });
-  };
-
-
-  useEffect(() => fetch_assistants(), []);
-  useEffect(() => fetch_numbers(), []);
+    fetch_numbers();
+  }, [access_token]);
 
   const addAssistant = (assistant) => {
     setAssistants([...assistants, assistant]);
@@ -147,10 +148,10 @@ function App() {
         <Box flex={1} overflowY="auto" bg="white" p={4} height="100%">
             <Routes>
                 <Route path="login" element={<Login />} />
-                <Route path="/" element={<Assistants assistants={assistants} addAssistant={addAssistant} />} />
-                <Route path="/assistants" element={<Assistants assistants={assistants} addAssistant={addAssistant} />} />
+                <Route path="/" element={<Assistants />} />
+                <Route path="/assistants" element={<Assistants />} />
                 <Route path="/campaigns" element={<Campaigns assistants={assistants} phoneNumbers={phoneNumbers} />} />
-                <Route path="/phone-numbers" element={<PhoneNumbers />} />
+                <Route path="/phone-numbers" element={<PhoneNumbers userPhoneNumbers={phoneNumbers} />} />
                 <Route path="/call-logs" element={<CallLogs />} />
                 <Route path="/billing" element={<Billing />} />
                 <Route path="/settings" element={<Settings />} />

@@ -11,6 +11,10 @@ import {
   VStack,
   HStack,
   Text,
+  Input,
+  Alert,
+  AlertIcon,
+  Progress,
   Grid,
   GridItem,
   Flex,
@@ -23,13 +27,18 @@ import { InfoIcon, EditIcon, DeleteIcon } from '@chakra-ui/icons';
 const Assistants = () => {
   const base_url = '127.0.0.1:5000';
   const access_token = localStorage.getItem("access_token");
-
   const [systemPrompt, setSystemPrompt] = useState('');
   const [voice, setVoice] = useState('');
   const [assistant_id, setAssistantId] = useState(0);
   const [assistants, setAssistants] = useState([]);
-  // fixme возможно можно убрать и сделать assistants параметром, передаваемым в App.js
-  const fetch_assistants = () => {
+  const [uploadStatus, setUploadStatus] = useState('');
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [fileContent, setFileContent] = useState("");
+  const [fileName, setFileName] = useState("");
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [uploadedFile, setUploadedFile] = useState(null);
+
+  useEffect(() => {
     const url = `http://${base_url}/assistants?jwt_token=${access_token}`;
     axios
       .get(url)
@@ -45,10 +54,33 @@ const Assistants = () => {
         }
         setAssistants(user_assistants);
       });
-    };
+    }, []);
 
-  useEffect(() => fetch_assistants(), []);
-
+    /*const handleFileUpload = (e) => {
+      for (let i = 0; i < e.target.files.length; i++) {
+        const file = e.target.files[i];
+        if (file) {
+          setFileName(file.name);
+          setUploadedFile(file);
+          setUploadedFiles([...uploadedFiles, file]);
+          setUploadStatus('uploading');
+          let progress = 0;
+          const interval = setInterval(() => {
+            progress += 10;
+            setUploadProgress(progress);
+            if (progress >= 100) {
+              clearInterval(interval);
+              setUploadStatus('success');
+            }
+          }, 200);
+        } else {
+          setUploadStatus('error');
+          setUploadedFile(null);
+          e.target.value = null;
+        }
+      }
+      console.log(uploadedFiles);
+    };*/
 
   // edit to post to assistants endpoint
   const handleSubmit = (e) => {
@@ -70,6 +102,7 @@ const Assistants = () => {
       });
 
     setAssistantId(assistant_id);
+    setAssistants([...assistants, newAssistant]);
   };
 
   return (
@@ -102,10 +135,16 @@ const Assistants = () => {
               </Flex>
               <Select value={voice} onChange={(e) => setVoice(e.target.value)} fontSize="sm">
                 <option value="">Select a voice</option>
-                <option value="nova">Nova</option>
                 <option value="alloy">Alloy</option>
-                <option value="echo">Echo</option>
               </Select>
+            </FormControl>
+            <FormControl>
+              <FormLabel mb={1}>
+                Upload File
+                <Tooltip label="Upload a file containing additional campaign data" placement="top-start">
+                  <InfoIcon ml={2} />
+                </Tooltip>
+              </FormLabel>
             </FormControl>
             <Button type="submit" colorScheme="blue" size="md">Create Assistant</Button>
           </VStack>

@@ -7,7 +7,7 @@ import settings
 import websockets
 from database_management import Database
 
-from typing import Dict
+from typing import Dict, Annotated
 
 from twilio.rest import Client
 from dotenv import load_dotenv
@@ -16,7 +16,10 @@ from pydantic import BaseModel, Field, EmailStr
 from fastapi.websockets import WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from twilio.twiml.voice_response import VoiceResponse, Stream, Start, Connect
-from fastapi import FastAPI, WebSocket, Body, Depends, HTTPException, status, Request
+from fastapi import FastAPI, WebSocket, Body, Depends, HTTPException, status, Request, File, Form, UploadFile
+
+import pandas as pd
+from io import BytesIO
 
 # auth modules
 from sqlalchemy.orm import Session
@@ -26,14 +29,13 @@ from jwt.exceptions import InvalidTokenError
 load_dotenv(override=True)
 
 # Set up Twilio client
-twilio_account_sid = os.getenv('TWILIO_ACCOUNT_SID')
-twilio_auth_token = os.getenv('TWILIO_AUTH_TOKEN')
+#twilio_account_sid = os.getenv('TWILIO_ACCOUNT_SID')
+#twilio_auth_token = os.getenv('TWILIO_AUTH_TOKEN')
 
-twilio_client = Client(twilio_account_sid, twilio_auth_token)
 database = Database(
-    host=os.getenv('MYSQL_HOST'),
+    host='localhost',#os.getenv('MYSQL_HOST'),
     user=os.getenv('MYSQL_USER'),
-    password=os.getenv('MYSQL_PASSWORD'),
+    password='jhyfn2001',#os.getenv('MYSQL_PASSWORD'),
     database=os.getenv('MYSQL_DB'),
 )
 
@@ -45,6 +47,8 @@ LOG_EVENT_TYPES = [
     'input_audio_buffer.committed', 'input_audio_buffer.speech_stopped',
     'input_audio_buffer.speech_started', 'session.created'
 ]
+SHOW_TIMING_MATH = False
+HOST = "ff31-62-106-76-38.ngrok-free.app"
 
 app = FastAPI()
 
@@ -117,11 +121,6 @@ def get_current_user(
         raise credentials_exception
     return user
 
-@app.exception_handler(422)
-def catch_unprocessed_entity(request: Request):
-    print(request.json())
-    return
-
 @app.post('/signup', response_model=UserSchema)
 def signup(
     payload: CreateUserSchema = Body(), 
@@ -134,7 +133,7 @@ def signup(
 @app.post("/login", response_model=Dict)
 def login(
     payload: UserLoginSchema = Body(),
-    session: Session = Depends(get_db)
+    session: Session = Depends(get_db),
 ):
     print(payload)
     try:
@@ -161,17 +160,29 @@ async def index_page():
     return {"message": "Twilio Media Stream Server is running!"}
 
 
+@app.post("/run-campaign")
+async def run_campaign(campaign_id, jwt_token, session: Session = Depends(get_db)):
+    get_current_user(jwt_token, session)
+    campaign_data = database.get_campaign(campaign_id)
+    phone_number_data = database.get_phone_number(campaign_data["phone_number_id"])
+    clients_data = pd.read_csv(BytesIO(campaign_data["uploaded_file"]))
+    clients_data["to_number"] = clients_data["to_number"].astype(str)
+
+    for _, client in clients_data.iterrows():
+        await make_outgoing_call(
+                to_number=client.to_number,
+                campaign_id=campaign_id,
+                from_number=phone_number_data["phone_number"],
+                account_sid=phone_number_data["account_sid"],
+                auth_token=phone_number_data["auth_token"],
+            )
+
 class HandleCall(BaseModel):
     to_number: str
     host: str
 
 @app.api_route("/incoming-call", methods=["GET", "POST"])
-async def handle_incoming_call(
-    jwt_token: str,
-    campaign_id: int,
-    request: Request,
-    session: Session=Depends(get_db),
-):
+async def handle_incoming_call(campaign_id: int, request: Request):
     """Handle incoming call and return TwiML response to connect to Media Stream."""
     response = VoiceResponse()
     # <Say> punctuation to improve text-to-speech flow
@@ -179,38 +190,30 @@ async def handle_incoming_call(
     response.pause(length=1)
     host = request.url.hostname
     connect = Connect()
-    stream = connect.stream(url=f'wss://{host}/media-stream?campaign_id={campaign_id}')
+    stream = connect.stream(url=f'wss://{host}/media-stream')
     stream.parameter(name='campaign_id', value=campaign_id)
     response.append(connect)
-    
-    # fixme возможно в male_outgoing_call должно быть это вместо response в качестве twiml
     return HTMLResponse(content=str(response), media_type="application/xml")
 
-@app.post("/make_outgoing_call")
+@app.post("/outgoing-call")
 async def make_outgoing_call(
-    jwt_token: str,
-    campaign_id: int,
-    request: HandleCall,
-    session: Session=Depends(get_db),
+    to_number,
+    campaign_id,
+    from_number,
+    account_sid,
+    auth_token,
 ):
-    # testme
-    # fixme campaign_id from jwt_token
-    to_number = request.to_number
-    host = request.host
-
+    twilio_client = Client(account_sid, auth_token)
     call = twilio_client.calls.create(
         to=to_number,
-        from_="+12014256272",
-        url=f"https://{host}/incoming-call?jwt_token={jwt_token}&campaign_id={campaign_id}"
+        from_=from_number,
+        url=f"https://{HOST}/incoming-call?campaign_id={campaign_id}"
     )
 
-    return call.sid
+    return call
 
 @app.websocket("/media-stream")
-async def handle_media_stream(
-    campaign_id: int,
-    websocket: WebSocket,
-):
+async def handle_media_stream(websocket: WebSocket):
     """Handle WebSocket connections between Twilio and OpenAI."""
     print("Client connected")
     await websocket.accept()
@@ -222,28 +225,38 @@ async def handle_media_stream(
             "OpenAI-Beta": "realtime=v1"
         }
     ) as openai_ws:
+        # Connection specific state
         stream_sid = None
-        assistant_id = database.get_campaign(campaign_id)["assistant_id"]
-        assistant_data = database.get_assistant(assistant_id)
-        await initialize_session(openai_ws, assistant_data)
-
+        latest_media_timestamp = 0
+        last_assistant_item = None
+        mark_queue = []
+        response_start_timestamp_twilio = None
+        
         async def receive_from_twilio():
             """Receive audio data from Twilio and send it to the OpenAI Realtime API."""
-            nonlocal stream_sid
+            nonlocal stream_sid, latest_media_timestamp
             try:
                 async for message in websocket.iter_text():
                     data = json.loads(message)
                     if data['event'] == 'media' and openai_ws.open:
+                        latest_media_timestamp = int(data['media']['timestamp'])
                         audio_append = {
                             "type": "input_audio_buffer.append",
                             "audio": data['media']['payload']
                         }
                         await openai_ws.send(json.dumps(audio_append))
                     elif data['event'] == 'start':
-                        # testme
-                        #campaign_id = data['start']['customParameters']["campaign_id"]
                         stream_sid = data['start']['streamSid']
+                        campaign_id = data['start']['customParameters']['campaign_id']
+                        assistant_id = database.get_campaign(campaign_id)['assistant_id']
+                        await initialize_session(openai_ws, assistant_id)
                         print(f"Incoming stream has started {stream_sid}")
+                        response_start_timestamp_twilio = None
+                        latest_media_timestamp = 0
+                        last_assistant_item = None
+                    elif data['event'] == 'mark':
+                        if mark_queue:
+                            mark_queue.pop(0)
             except WebSocketDisconnect:
                 print("Client disconnected.")
                 if openai_ws.open:
@@ -251,50 +264,127 @@ async def handle_media_stream(
 
         async def send_to_twilio():
             """Receive events from the OpenAI Realtime API, send audio back to Twilio."""
-            nonlocal stream_sid
+            nonlocal stream_sid, last_assistant_item, response_start_timestamp_twilio
             try:
                 async for openai_message in openai_ws:
                     response = json.loads(openai_message)
                     if response['type'] in LOG_EVENT_TYPES:
                         print(f"Received event: {response['type']}", response)
-                    if response['type'] == 'session.updated':
-                        print("Session updated successfully:", response)
-                    if response['type'] == 'response.audio.delta' and response.get('delta'):
-                        # Audio from OpenAI
-                        try:
-                            audio_payload = base64.b64encode(base64.b64decode(response['delta'])).decode('utf-8')
-                            audio_delta = {
-                                "event": "media",
-                                "streamSid": stream_sid,
-                                "media": {
-                                    "payload": audio_payload
-                                }
+
+                    if response.get('type') == 'response.audio.delta' and 'delta' in response:
+                        audio_payload = base64.b64encode(base64.b64decode(response['delta'])).decode('utf-8')
+                        audio_delta = {
+                            "event": "media",
+                            "streamSid": stream_sid,
+                            "media": {
+                                "payload": audio_payload
                             }
-                            await websocket.send_json(audio_delta)
-                        except Exception as e:
-                            print(f"Error processing audio data: {e}")
+                        }
+                        #print("Response from server received: ", json.dumps(audio_delta))
+                        await websocket.send_json(audio_delta)
+
+                        if response_start_timestamp_twilio is None:
+                            response_start_timestamp_twilio = latest_media_timestamp
+                            if SHOW_TIMING_MATH:
+                                print(f"Setting start timestamp for new response: {response_start_timestamp_twilio}ms")
+
+                        # Update last_assistant_item safely
+                        if response.get('item_id'):
+                            last_assistant_item = response['item_id']
+
+                        await send_mark(websocket, stream_sid)
+
+                    # Trigger an interruption. Your use case might work better using `input_audio_buffer.speech_stopped`, or combining the two.
+                    if response.get('type') == 'input_audio_buffer.speech_started':
+                        print("Speech started detected.")
+                        if last_assistant_item:
+                            print(f"Interrupting response with id: {last_assistant_item}")
+                            await handle_speech_started_event()
             except Exception as e:
                 print(f"Error in send_to_twilio: {e}")
 
-        await asyncio.gather(send_to_twilio(), receive_from_twilio())
+        async def handle_speech_started_event():
+            """Handle interruption when the caller's speech starts."""
+            nonlocal response_start_timestamp_twilio, last_assistant_item
+            print("Handling speech started event.")
+            if mark_queue and response_start_timestamp_twilio is not None:
+                elapsed_time = latest_media_timestamp - response_start_timestamp_twilio
+                if SHOW_TIMING_MATH:
+                    print(f"Calculating elapsed time for truncation: {latest_media_timestamp} - {response_start_timestamp_twilio} = {elapsed_time}ms")
 
-async def initialize_session(openai_ws, assistant_data):
-    """Send session update to OpenAI WebSocket."""
-    # testme 
+                if last_assistant_item:
+                    if SHOW_TIMING_MATH:
+                        print(f"Truncating item with ID: {last_assistant_item}, Truncated at: {elapsed_time}ms")
+
+                    truncate_event = {
+                        "type": "conversation.item.truncate",
+                        "item_id": last_assistant_item,
+                        "content_index": 0,
+                        "audio_end_ms": elapsed_time
+                    }
+                    await openai_ws.send(json.dumps(truncate_event))
+
+                await websocket.send_json({
+                    "event": "clear",
+                    "streamSid": stream_sid
+                })
+
+                mark_queue.clear()
+                last_assistant_item = None
+                response_start_timestamp_twilio = None
+
+        async def send_mark(connection, stream_sid):
+            if stream_sid:
+                mark_event = {
+                    "event": "mark",
+                    "streamSid": stream_sid,
+                    "mark": {"name": "responsePart"}
+                }
+                await connection.send_json(mark_event)
+                mark_queue.append('responsePart')
+
+        await asyncio.gather(receive_from_twilio(), send_to_twilio())
+
+async def send_initial_conversation_item(openai_ws):
+    """Send initial conversation item if AI talks first."""
+    initial_conversation_item = {
+        "type": "conversation.item.create",
+        "item": {
+            "type": "message",
+            "role": "user",
+            "content": [
+                {
+                    "type": "input_text",
+                    "text": "Greet the user with 'Hello there! I am an AI voice assistant powered by Twilio and the OpenAI Realtime API. You can ask me for facts, jokes, or anything you can imagine. How can I help you?'"
+                }
+            ]
+        }
+    }
+    await openai_ws.send(json.dumps(initial_conversation_item))
+    await openai_ws.send(json.dumps({"type": "response.create"}))
+
+
+async def initialize_session(openai_ws, assistant_id):
+    """Control initial session with OpenAI."""
+    assistant_data = database.get_assistant(assistant_id)
+    #print(assistant_data)
     session_update = {
-        "type": "session.created",
+        "type": "session.update",
         "session": {
             "turn_detection": {"type": "server_vad"},
             "input_audio_format": "g711_ulaw",
             "output_audio_format": "g711_ulaw",
-            "voice": assistant_data["voice"],
-            "instructions": assistant_data["prompt"],
+            "voice": 'alloy',#assistant_data['voice'],
+            "instructions": assistant_data['prompt'],
             "modalities": ["text", "audio"],
             "temperature": 0.8,
         }
     }
-    print('Sending session create:', json.dumps(session_update))
+    print('Sending session update:', json.dumps(session_update))
     await openai_ws.send(json.dumps(session_update))
+
+    # Uncomment the next line to have the AI speak first
+    # await send_initial_conversation_item(openai_ws)
 
 
 
@@ -325,6 +415,7 @@ def get_assistants(
 ):
     user = get_current_user(jwt_token, session)
     user_id = user.user_id
+    print("USER ID: ", user_id)
     return database.get_user_assistants(user_id)
 
 @app.get("/assistant")
@@ -338,24 +429,44 @@ def get_assistant(
     return database.get_assistant(assistant_id) 
 
 class CampaignData(BaseModel):
-    assistant_id: int
-    phone_number_id: int
-    campaign_type: str
-    start_time: str
-    end_time: str
-    max_recalls: int
-    recall_interval: int
-    campaign_status: str
+    assistant_id: int = Form(...)
+    phone_number_id: int = Form(...)
+    campaign_type: str = Form(...)
+    start_time: str = Form(...)
+    end_time: str = Form(...)
+    max_recalls: int = Form(...)
+    recall_interval: int = Form(...)
+    campaign_status: str = Form(...)
+    
+@app.post("/campaign-days-of-week")
+def create_campaign_days_of_week(
+    campaign_id: int,
+    day_of_week_id: int,
+    jwt_token: str,
+    session: Session=Depends(get_db), 
+):
+    get_current_user(jwt_token, session)
+    return database.create_campaign_days_of_week(campaign_id, day_of_week_id)
 
 @app.post("/campaigns")
 def create_campaign(
-    campaign_data: CampaignData,
+    #campaign_data: CampaignData,
     jwt_token: str,
+    uploaded_file: Annotated[bytes, File()],
+    file_name: str = Form(...),
+    assistant_id: int = Form(...),
+    phone_number_id: int = Form(...),
+    campaign_type: str = Form(...),
+    start_time: str = Form(...),
+    end_time: str = Form(...),
+    max_recalls: int = Form(...),
+    recall_interval: int = Form(...),
+    campaign_status: str = Form(...),
     session: Session=Depends(get_db),
 ):
     user = get_current_user(jwt_token, session)
     user_id = user.user_id
-    assistant_id = campaign_data.assistant_id
+    """assistant_id = campaign_data.assistant_id
     phone_number_id = campaign_data.phone_number_id
     campaign_type = campaign_data.campaign_type
     start_time = campaign_data.start_time
@@ -363,6 +474,7 @@ def create_campaign(
     max_recalls = campaign_data.max_recalls
     recall_interval = campaign_data.recall_interval
     campaign_status = campaign_data.campaign_status
+    uploaded_file = uploaded_file"""
 
     return database.create_campaign(
         user_id,
@@ -373,7 +485,9 @@ def create_campaign(
         end_time,
         max_recalls,
         recall_interval,
-        campaign_status
+        campaign_status,
+        uploaded_file,
+        file_name,
     )
 
 @app.get("/campaigns")
@@ -384,8 +498,6 @@ def get_campaings(
     user = get_current_user(jwt_token, session)
     user_id = user.user_id
     return database.get_user_campaigns(user_id)
-
-
 
 
 class PhoneNumber(BaseModel):
@@ -406,7 +518,7 @@ def create_phone_number(
     account_sid = phone_number_data.account_sid
     auth_token = phone_number_data.auth_token
 
-    database.create_phone_number(phone_number, user_id, account_sid, auth_token)
+    return database.create_phone_number(phone_number, user_id, account_sid, auth_token)
 
 @app.get("/phone-numbers")
 def get_phone_numbers(
@@ -417,6 +529,41 @@ def get_phone_numbers(
     user_id = user.user_id
     return database.get_user_phone_numbers(user_id)
 
+@app.get("/days-of-week")
+def get_days_of_week():
+    return database.get_days_of_week()
+
+@app.get("/campaign-days-of-week")
+def get_campaign_days_of_week(
+    campaign_id: int,
+    jwt_token: str,
+    session: Session=Depends(get_db),
+):
+    get_current_user(jwt_token, session)
+    return database.get_campaign_days_of_week(campaign_id)
+
+@app.post("/knowledge")
+def create_knowledge(
+    jwt_token: str,
+    uploaded_file: Annotated[bytes, File()],
+    file_name: str=Form(...),
+    session: Session=Depends(get_db),
+):
+    user = get_current_user(jwt_token, session)
+
+    user_id = user.user_id
+    return database.create_knowledge(user_id, uploaded_file, file_name)
+
+@app.post("/assistant-knowledge")
+def create_assistants_knowledge(
+    jwt_token: str,
+    session: Session=Depends(get_db),
+    assistant_id: int=Form(...),
+    knowledge_id: int=Form(...),
+):
+    get_current_user(jwt_token, session)
+    return database.create_assistant_knowledge(assistant_id, knowledge_id)
+    
 
 if __name__ == "__main__":
     import uvicorn

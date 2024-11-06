@@ -16,7 +16,7 @@ import settings
 
 
 # Create database engine
-engine = create_engine(settings.DATABASE_URL, echo=True, future=True)
+engine = create_engine(settings.DATABASE_URL, echo=True, future=True, isolation_level="READ UNCOMMITTED")
 
 # Create database declarative base
 Base = declarative_base()

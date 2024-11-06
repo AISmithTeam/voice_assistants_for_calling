@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   VStack,
@@ -31,38 +31,46 @@ import {
   Grid,
 } from '@chakra-ui/react';
 import { EditIcon, DeleteIcon, InfoIcon } from '@chakra-ui/icons';
+import { FaPlay } from "react-icons/fa"
 import axios from 'axios';
 
 const Campaigns = ({ assistants, phoneNumbers }) => {
   const base_url = '127.0.0.1:5000';
   const access_token = localStorage.getItem("access_token");
-
+  const [daysOfWeek, setDaysOfWeek] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
   const [assistantId, setAssistantId] = useState(0);
   const [assistant, setAssistant] = useState(''); // fixme должно быть имя ассистента, пока промпт
   const [maxCallsToClient, setMaxCallsToClient] = useState(0);
   const [recallInterval, setRecallInterval] = useState(0);
   const [uploadedFile, setUploadedFile] = useState(null);
+  const [uploadedFileName, setUploadedFileName] = useState('');
   const [uploadStatus, setUploadStatus] = useState('');
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [daysOfWeek, setDaysOfWeek] = useState([]);
+  const [campaignDaysOfWeek, setCampaignDaysOfWeek] = useState([]);
   const [startTime, setStartTime] = useState('09:00');
   const [endTime, setEndTime] = useState('18:00');
   const [campaignType, setCampaignType] = useState('');
   const [numberId, setNumberId] = useState(0);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [campaignStatus, setCampaignStatus] = useState('');
+  const [campaignId, setCampaignId] = useState(0);
   const [isMobile] = useMediaQuery("(max-width: 768px)");
 
   // TODO извлечение существующих кампаний при загрузке страницы
 
-  const handleSubmit = (e) => {
+  const handleRunCampaign = (campaign_id) => {
+    axios
+      .post(`http://${base_url}/run-campaign?jwt_token=${access_token}&campaign_id=${campaign_id}`);
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const newCampaign = {
       assistant,
       maxCallsToClient,
       uploadedFile,
-      daysOfWeek,
+      campaignDaysOfWeek,
       startTime,
       endTime,
       campaignType,
@@ -70,27 +78,38 @@ const Campaigns = ({ assistants, phoneNumbers }) => {
       phoneNumber
     };
 
-    axios
-      .post(`http://${base_url}/campaigns?jwt_token=${access_token}`, {
-        assistant_id: assistantId,
-        phone_number_id: numberId,
-        campaign_type: campaignType,
-        start_time: startTime,
-        end_time: endTime,
-        max_recalls: maxCallsToClient,
-        recall_interval: recallInterval,
-        campaign_status: "stopped"
-      })
+    const form = new FormData();
+    form.append("assistant_id", assistantId);
+    form.append("phone_number_id", numberId);
+    form.append("campaign_type", campaignType);
+    form.append("start_time", startTime);
+    form.append("end_time", endTime);
+    form.append("max_recalls", maxCallsToClient);
+    form.append("recall_interval", recallInterval);
+    form.append("uploaded_file", uploadedFile);
+    form.append("file_name", uploadedFileName);
+    form.append("campaign_status", "stopped");
+
+    await axios
+      .post(`http://${base_url}/campaigns?jwt_token=${access_token}`, form)
       .then(function (response) {
-        setAssistant(assistants.find( (assistant) => assistant.assistant_id === response.data.assistant_id ).systemPrompt);
-        setPhoneNumber(phoneNumbers.find( (phoneNumber) => phoneNumber.phone_number_id === response.phone_number_id ).phoneNumber);
-        setCampaignType(response.campaign_type);
-        setStartTime(response.start_time);
-        setEndTime(response.end_time);
-        setMaxCallsToClient(response.max_recalls);
-        setRecallInterval(response.recall_interval);
-        setCampaignStatus(response.campaign_status);
+        const data = response.data;
+        setPhoneNumber(phoneNumbers.find( (phoneNumber) => phoneNumber.phoneNumberId === data.phone_number_id ).phoneNumber);
+        setAssistant(assistants.find( (assistant) => assistant.assistant_id === data.assistant_id ).systemPrompt);
+        setRecallInterval(data.recall_interval);
+        setCampaignStatus(data.campaign_status);
+        setMaxCallsToClient(data.max_recalls);
+        setCampaignType(data.campaign_type);
+        setStartTime(data.start_time);
+        setCampaignId(data.id);
+        setEndTime(data.end_time);
+        
+        for (let i=0; i < campaignDaysOfWeek.length; i++) {
+          axios.post(`http://${base_url}/campaign-days-of-week?jwt_token=${access_token}&campaign_id=${data.id}&day_of_week_id=${campaignDaysOfWeek[i].dayOfWeekId}`);
+        }
       });
+
+    
 
     setCampaigns([...campaigns, newCampaign]);
     //setAssistant('');
@@ -105,11 +124,11 @@ const Campaigns = ({ assistants, phoneNumbers }) => {
     //setNumbers('');
   };
 
-  console.log(assistants[0]);
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (file && (file.type === 'text/csv' || file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
       setUploadedFile(file);
+      setUploadedFileName(file.name);
       setUploadStatus('uploading');
       // Simulating upload progress
       let progress = 0;
@@ -128,12 +147,75 @@ const Campaigns = ({ assistants, phoneNumbers }) => {
     }
   };
 
+
+  useEffect(() => {
+    axios
+      .get(`http://${base_url}/days-of-week?jwt_token=${access_token}&campaign_id=${campaignId}`)
+        .then(function (response) {
+          const data = response.data;
+          var daysOfWeekList = [];
+          var dayOfWeekId, dayOfWeek;
+          for (var i=0; i < data.length; i++) {
+            dayOfWeekId = data[i].id;
+            dayOfWeek = data[i].day_of_week;
+            daysOfWeekList.push({ dayOfWeekId, dayOfWeek});
+          }
+          setDaysOfWeek(daysOfWeekList);
+        });
+  }, [access_token, campaignId]);
+
+  useEffect(() => {
+    axios
+      .get(`http://${base_url}/campaigns?jwt_token=${access_token}`)
+      .then(function (response) {
+        const data = response.data;
+        var userCampaigns = [];
+        var campaignId, assistant, dayOfWeekId, dayOfWeek, maxCallsToClient, startTime, endTime, campaignType, phoneNumber, campaignStatus, uploadedFile;
+        for (let i=0; i < data.length; i++) {
+          var campaignDaysOfWeek = [];
+          campaignId = data[i].id;
+          phoneNumber = phoneNumbers.find( (phoneNumber) => phoneNumber.phoneNumberId === data[i].phone_number_id ).phoneNumber;
+          assistant = assistants.find( (assistant) => assistant.assistant_id === data[i].assistant_id ).systemPrompt;
+          maxCallsToClient = data[i].max_recalls;
+          startTime = data[i].start_time;
+          endTime = data[i].end_time;
+          campaignType = data[i].type;
+          campaignStatus = data[i].status;
+          uploadedFile = data[i].uploaded_file;
+          for (let j=0; j < data[i].days_of_week.length; j++) {
+            dayOfWeekId = data[i].days_of_week[j].day_of_week_id;
+            console.log(daysOfWeek.find( (dayOfWeek) => dayOfWeek.dayOfWeekId === dayOfWeekId ));
+            if (typeof daysOfWeek.find( (dayOfWeek) => dayOfWeek.dayOfWeekId === dayOfWeekId ) !== 'undefined') {
+              dayOfWeek = daysOfWeek.find( (dayOfWeek) => dayOfWeek.dayOfWeekId === dayOfWeekId ).dayOfWeek;
+              campaignDaysOfWeek.push({ dayOfWeekId, dayOfWeek});
+            }
+          }
+
+          // fixme add upload file
+          userCampaigns.push({ 
+            campaignId,
+            assistant,
+            maxCallsToClient,
+            campaignDaysOfWeek,
+            startTime,
+            endTime,
+            campaignType,
+            phoneNumber,
+            campaignStatus,
+            uploadedFile
+          });
+        }
+        setCampaigns(userCampaigns);
+      });
+      console.log("AFTER REQUEST");
+  }, [access_token, assistants, daysOfWeek, phoneNumbers]);
+
   const handleDayChange = (day) => {
-    setDaysOfWeek(prev =>
+    setCampaignDaysOfWeek(prev =>
       prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
     );
   };
-
+  
   return (
     <Grid templateColumns={{ base: "1fr", md: "1fr 1fr" }} gap={6} maxWidth="100%" px={[2, 4, 6]}>
       <Box>
@@ -195,14 +277,14 @@ const Campaigns = ({ assistants, phoneNumbers }) => {
               </Tooltip>
             </FormLabel>
             <HStack flexWrap="wrap" spacing={2}>
-              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
+              {daysOfWeek.map((day, index) => (
                 <Checkbox
                   key={day}
                   size="sm"
-                  isChecked={daysOfWeek.includes(day)}
+                  isChecked={campaignDaysOfWeek.includes(day)}
                   onChange={() => handleDayChange(day)}
                 >
-                  {day}
+                  {day.dayOfWeek}
                 </Checkbox>
               ))}
             </HStack>
@@ -301,22 +383,23 @@ const Campaigns = ({ assistants, phoneNumbers }) => {
             {campaigns.map((campaign, index) => (
               <Card key={index} size="sm">
                 <CardHeader py={2}>
-                  <Heading size="sm">Campaign {index + 1}</Heading>
+                  <Heading size="sm">Campaign {campaign.campaignId}</Heading>
                 </CardHeader>
                 <CardBody py={2}>
                   <Text fontSize="xs"><strong>Assistant:</strong> {campaign.assistant.substring(0, 30)}...</Text>
                   <Text fontSize="xs"><strong>Max Calls:</strong> {campaign.maxCallsToClient}</Text>
-                  <Text fontSize="xs"><strong>Days:</strong> {campaign.daysOfWeek.join(', ')}</Text>
+                  <Text fontSize="xs"><strong>Days:</strong> {campaign.campaignDaysOfWeek.map((dayOfWeek) => dayOfWeek.dayOfWeek).join(', ')}</Text>
                   <Text fontSize="xs"><strong>Time:</strong> {`${campaign.startTime} - ${campaign.endTime}`}</Text>
                   <Text fontSize="xs"><strong>Type:</strong> {campaign.campaignType}</Text>
-                  <Text fontSize="xs"><strong>Number:</strong> {campaign.phoneNumber.substring(0, 20)}...</Text>
+                  <Text fontSize="xs"><strong>Number:</strong> {campaign.phoneNumber.substring(0, 20)}</Text>
                   <Text fontSize="xs"><strong>Status:</strong> {campaign.campaignStatus}</Text>
                   <Text fontSize="xs"><strong>File:</strong> {campaign.uploadedFile ? campaign.uploadedFile.name : 'No file'}</Text>
                 </CardBody>
                 <CardFooter py={2}>
                   <HStack spacing={2}>
-                    <IconButton icon={<EditIcon />} aria-label="Edit" size="xs" />
-                    <IconButton icon={<DeleteIcon />} aria-label="Delete" size="xs" />
+                    <IconButton icon={<EditIcon />} aria-label="Edit" size="sm" />
+                    <IconButton icon={<DeleteIcon />} aria-label="Delete" size="sm" />
+                    <IconButton icon={<FaPlay />} size="sm" title='click to run calling campaign' onClick={() => handleRunCampaign(campaign.campaignId)}/>
                   </HStack>
                 </CardFooter>
               </Card>

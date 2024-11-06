@@ -23,7 +23,7 @@ import {
 import { InfoIcon, EditIcon, DeleteIcon } from '@chakra-ui/icons';
 
 
-const PhoneNumbers = () => {
+const PhoneNumbers = ({userPhoneNumbers}) => {
   const base_url = '127.0.0.1:5000';
   const [isMobile] = useMediaQuery("(max-width: 768px)");
   const access_token = localStorage.getItem("access_token");
@@ -33,10 +33,12 @@ const PhoneNumbers = () => {
   const [authToken, setAuthToken] = useState('');
   const [phoneNumberId, setPhoneNumberId] = useState(0);
   const [phoneNumbers, setPhoneNumbers] = useState([]);
+  
+  useEffect(() => setPhoneNumbers(userPhoneNumbers), []);
 
   const submitRef = useRef();
 
-  useEffect(() => {
+  /*useEffect(() => {
     const url = `http://${base_url}/phone-numbers?jwt_token=${access_token}`;
     axios
       .get(url)
@@ -53,7 +55,7 @@ const PhoneNumbers = () => {
         }
         setPhoneNumbers(userPhoneNumbers);
       });
-  }, []);
+  }, []);*/
 
 
   const handleSubmit = (e) => {
