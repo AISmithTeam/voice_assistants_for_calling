@@ -29,6 +29,7 @@ import {
   CardBody,
   CardFooter,
   Grid,
+  Container,
 } from '@chakra-ui/react';
 import { EditIcon, DeleteIcon, InfoIcon } from '@chakra-ui/icons';
 import { FaPlay } from "react-icons/fa"
@@ -175,7 +176,7 @@ const Campaigns = ({ assistants, phoneNumbers }) => {
           var campaignDaysOfWeek = [];
           campaignId = data[i].id;
           phoneNumber = phoneNumbers.find( (phoneNumber) => phoneNumber.phoneNumberId === data[i].phone_number_id ).phoneNumber;
-          assistant = assistants.find( (assistant) => assistant.assistant_id === data[i].assistant_id ).systemPrompt;
+          assistant = assistants.find( (assistant) => assistant.assistant_id === data[i].assistant_id ).assistantName;
           maxCallsToClient = data[i].max_recalls;
           startTime = data[i].start_time;
           endTime = data[i].end_time;
@@ -215,10 +216,12 @@ const Campaigns = ({ assistants, phoneNumbers }) => {
       prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
     );
   };
-  
+  //<Grid templateColumns={{ base: "1fr", md: "1fr 1fr" }} gap={6} maxWidth="100%" px={[2, 4, 6]}>
+  /////////////////////////////////////////////////////////////
   return (
-    <Grid templateColumns={{ base: "1fr", md: "1fr 1fr" }} gap={6} maxWidth="100%" px={[2, 4, 6]}>
-      <Box>
+  <Container maxW="container.xl" py={6} style={{position: 'absolute', width: "80%"}}>  
+    <VStack width={"70%"} align={"center"}>
+      <Box width={"100%"}>
         <Heading mb={3} fontSize={{ base: "xl", md: "2xl" }}>Campaigns Management</Heading>
         <VStack spacing={3} as="form" onSubmit={handleSubmit} align="stretch">
           <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
@@ -233,7 +236,7 @@ const Campaigns = ({ assistants, phoneNumbers }) => {
                 <option value="">Select an assistant</option>
                 {assistants.map((assistant, index) => (
                   <option key={index} value={assistant.assistant_id}>
-                    {assistant.systemPrompt.substring(0, 30)}...
+                    {assistant.assistantName}
                   </option>
                 ))}
               </Select>
@@ -379,7 +382,7 @@ const Campaigns = ({ assistants, phoneNumbers }) => {
       {campaigns.length > 0 && (
         <Box>
           <Heading size="md" mb={3}>Existing Campaigns</Heading>
-          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+          <SimpleGrid columns={{ base: 1, md: 3 }} spacing={3}>
             {campaigns.map((campaign, index) => (
               <Card key={index} size="sm">
                 <CardHeader py={2}>
@@ -398,7 +401,7 @@ const Campaigns = ({ assistants, phoneNumbers }) => {
                 <CardFooter py={2}>
                   <HStack spacing={2}>
                     <IconButton icon={<EditIcon />} aria-label="Edit" size="sm" />
-                    <IconButton icon={<DeleteIcon />} aria-label="Delete" size="sm" />
+                    <IconButton icon={<DeleteIcon />} aria-label="Delete" size="sm" onClick={() => {setCampaigns(campaigns.filter((item) => {return item.campaignId !== campaign.campaignId}));}}/>
                     <IconButton icon={<FaPlay />} size="sm" title='click to run calling campaign' onClick={() => handleRunCampaign(campaign.campaignId)}/>
                   </HStack>
                 </CardFooter>
@@ -407,7 +410,8 @@ const Campaigns = ({ assistants, phoneNumbers }) => {
           </SimpleGrid>
         </Box>
       )}
-    </Grid>
+    </VStack>
+  </Container>
   );
 };
 

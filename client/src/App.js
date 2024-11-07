@@ -23,22 +23,28 @@ function App() {
   useEffect(() => {
     const fetch_assistants = async () => {
       const url = `http://${base_url}/assistants?jwt_token=${access_token}`;
+      console.log("App.js invokes fetch_assistants");
+      const options = {
+        method: "GET",
+      };
       axios
         .get(url)
         .then(function (response) {
           const data = response.data;
           var user_assistants = [];
-          var assistant_id, systemPrompt, voice;
+          var assistant_id, systemPrompt, voice, assistantName;
           for (var i=0; i < data.length; i++) {
+            assistantName = data[i].assistant_name;
             assistant_id = data[i].id;
             systemPrompt = data[i].prompt;
             voice = data[i].voice;
-            user_assistants.push( { systemPrompt, voice, assistant_id } );
+            user_assistants.push( { systemPrompt, voice, assistantName, assistant_id } );
           }
           setAssistants(user_assistants);
         });
       };
     fetch_assistants();
+    console.log(assistants);
   }, [access_token]);
 
   useEffect(() => {
@@ -117,9 +123,9 @@ function App() {
                 { icon: FaHome, label: 'Assistants', path: '/assistants' },
                 { icon: FaUser, label: 'Campaigns', path: '/campaigns' },
                 { icon: FaPhone, label: 'Phone Numbers', path: '/phone-numbers'},
-                { icon: FaClipboardList, label: 'Call Logs', path: '/call-logs' },
-                { icon: FaCreditCard, label: 'Billing', path: '/billing' },
-                { icon: FaCog, label: 'Settings', path: '/settings' },
+                //{ icon: FaClipboardList, label: 'Call Logs', path: '/call-logs' },
+                //{ icon: FaCreditCard, label: 'Billing', path: '/billing' },
+                //{ icon: FaCog, label: 'Settings', path: '/settings' },
               ].map(({ icon: Icon, label, path }) => (
                   <NavLink
                     key={label}

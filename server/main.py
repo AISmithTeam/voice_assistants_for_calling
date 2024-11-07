@@ -48,7 +48,7 @@ LOG_EVENT_TYPES = [
     'input_audio_buffer.speech_started', 'session.created'
 ]
 SHOW_TIMING_MATH = False
-HOST = "ff31-62-106-76-38.ngrok-free.app"
+HOST = "588d-212-193-4-221.ngrok-free.app"
 
 app = FastAPI()
 
@@ -184,16 +184,22 @@ class HandleCall(BaseModel):
 @app.api_route("/incoming-call", methods=["GET", "POST"])
 async def handle_incoming_call(campaign_id: int, request: Request):
     """Handle incoming call and return TwiML response to connect to Media Stream."""
-    response = VoiceResponse()
-    # <Say> punctuation to improve text-to-speech flow
-    response.say("Please wait while we connect you")
-    response.pause(length=1)
-    host = request.url.hostname
-    connect = Connect()
-    stream = connect.stream(url=f'wss://{host}/media-stream')
-    stream.parameter(name='campaign_id', value=campaign_id)
-    response.append(connect)
-    return HTMLResponse(content=str(response), media_type="application/xml")
+    with open("debug_logs.txt", "w") as f:
+        f.write(f"create stream function invoked with campaign_id={campaign_id}\n")
+        response = VoiceResponse()
+        # <Say> punctuation to improve text-to-speech flow
+        response.say("Please wait while we connect you")
+        response.pause(length=1)
+        host = request.url.hostname
+        connect = Connect()
+        stream = connect.stream(url=f'wss://{host}/media-stream')
+        f.write("stream created\n")
+        
+        stream.parameter(name='campaign_id', value=campaign_id)
+        response.append(connect)
+        f.write("create stream function returned\n")
+
+        return HTMLResponse(content=str(response), media_type="application/xml")
 
 @app.post("/outgoing-call")
 async def make_outgoing_call(
@@ -203,14 +209,22 @@ async def make_outgoing_call(
     account_sid,
     auth_token,
 ):
-    twilio_client = Client(account_sid, auth_token)
-    call = twilio_client.calls.create(
-        to=to_number,
-        from_=from_number,
-        url=f"https://{HOST}/incoming-call?campaign_id={campaign_id}"
-    )
+    with open("debug_logs.txt", "w") as f:
+        f.write(f"outbound call invoked with campaign_id={campaign_id}\n")
+        twilio_client = Client(account_sid, auth_token)
+        f.write("twilio client created\n")
+        print(twilio_client.incoming_phone_numbers.list())
 
-    return call
+        f.write("call created")
+        call = twilio_client.calls.create(
+            to=to_number,
+            from_=from_number,
+            url=f"https://{HOST}/incoming-call?campaign_id={campaign_id}"
+        )
+        f.write("oudbound call function returned\n")
+
+
+        return {"response": "call created_successfully"}
 
 @app.websocket("/media-stream")
 async def handle_media_stream(websocket: WebSocket):
@@ -374,8 +388,28 @@ async def initialize_session(openai_ws, assistant_id):
             "turn_detection": {"type": "server_vad"},
             "input_audio_format": "g711_ulaw",
             "output_audio_format": "g711_ulaw",
-            "voice": 'alloy',#assistant_data['voice'],
-            "instructions": assistant_data['prompt'],
+            "voice": 'verse',#assistant_data['voice'],
+            "instructions": """"Hello, and welcome to Bright Smile Dental Clinic! I’m your AI assistant. Before we begin, could you please let me know if you’d like to continue in English or another language?"
+
+If the caller selects a language:
+
+"Thank you! How can I assist you today? I’m here to help with appointments or any questions you might have about dental care."
+If the caller wants to schedule an appointment:
+
+"Great! Could I get your full name and contact number?"
+"Thanks! When would you like to come in? And is this for a check-up or a specific concern?"
+If they’re a returning patient: "Good to have you back! I’ll access your records to make sure we’re ready."
+"Your appointment is all set for [date and time]. I’ll confirm by email or SMS. Anything else I can assist with?"
+If the caller has a specific dental concern and seeks advice:
+
+For pain or discomfort: "Could you describe the pain briefly – is it sharp, or more of a dull ache? Sometimes, persistent tooth pain could mean an underlying issue. If it’s been ongoing, an appointment might be best to get this addressed thoroughly."
+For tooth sensitivity: "Sensitivity can be due to gum recession or worn enamel. Using toothpaste for sensitive teeth can help, but it’s worth checking in with the dentist to pinpoint the cause if it’s persistent."
+For other common concerns (like swelling or cosmetic questions): "Swelling often indicates an infection; a prompt dental check is advised. For cosmetic concerns, we offer various treatments – I’d recommend a consultation to review options in detail."
+If complex or urgent: "If it sounds more severe, I’d highly recommend an appointment so our team can provide a thorough check."
+
+Closing: "Thanks for reaching out to Bright Smile Dental Clinic! Looking forward to helping you keep that smile healthy and bright."
+
+You MUST talk emotionally, and 2 times fater than normal.""",#assistant_data['prompt'],
             "modalities": ["text", "audio"],
             "temperature": 0.8,
         }
@@ -391,6 +425,7 @@ async def initialize_session(openai_ws, assistant_id):
 class AssistantData(BaseModel):
     prompt: str
     voice: str
+    assistant_name: str
 
 @app.post("/assistants")
 def create_assistant(
@@ -403,8 +438,9 @@ def create_assistant(
     user_id = user.user_id
     prompt = assistant_data.prompt
     voice = assistant_data.voice
+    assistant_name = assistant_data.assistant_name
     
-    response = database.create_assistant(user_id, prompt, voice)
+    response = database.create_assistant(user_id, prompt, voice, assistant_name)
 
     return response
 
@@ -415,7 +451,6 @@ def get_assistants(
 ):
     user = get_current_user(jwt_token, session)
     user_id = user.user_id
-    print("USER ID: ", user_id)
     return database.get_user_assistants(user_id)
 
 @app.get("/assistant")
@@ -475,8 +510,7 @@ def create_campaign(
     recall_interval = campaign_data.recall_interval
     campaign_status = campaign_data.campaign_status
     uploaded_file = uploaded_file"""
-
-    return database.create_campaign(
+    campaign_data = database.create_campaign(
         user_id,
         assistant_id,
         phone_number_id,
@@ -489,6 +523,18 @@ def create_campaign(
         uploaded_file,
         file_name,
     )
+
+    campaign_id = campaign_data["id"]
+    phone_number_data = database.get_phone_number(phone_number_id)
+    account_sid = phone_number_data["account_sid"]
+    auth_token = phone_number_data["auth_token"]
+    phone_number = phone_number_data["phone_number"]
+
+    if campaign_type == "inbound":
+        client = Client(account_sid, auth_token)
+        incoming_phone_number = client.incoming_phone_numbers('PN4242228effc5204a3e7303879548cb9b').update(voice_url=f"https://{HOST}/incoming-call?campaign_id={campaign_id}")
+
+    return campaign_data
 
 @app.get("/campaigns")
 def get_campaings(
