@@ -24,7 +24,7 @@ import { InfoIcon, EditIcon, DeleteIcon } from '@chakra-ui/icons';
 
 
 const PhoneNumbers = ({userPhoneNumbers}) => {
-  const base_url = '127.0.0.1:5000';
+  const base_url = 'e316-212-193-4-221.ngrok-free.app';
   const [isMobile] = useMediaQuery("(max-width: 768px)");
   const access_token = localStorage.getItem("access_token");
 

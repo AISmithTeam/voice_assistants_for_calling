@@ -33,9 +33,9 @@ load_dotenv(override=True)
 #twilio_auth_token = os.getenv('TWILIO_AUTH_TOKEN')
 
 database = Database(
-    host='localhost',#os.getenv('MYSQL_HOST'),
+    host=os.getenv('MYSQL_HOST'),
     user=os.getenv('MYSQL_USER'),
-    password='jhyfn2001',#os.getenv('MYSQL_PASSWORD'),
+    password=os.getenv('MYSQL_PASSWORD'),
     database=os.getenv('MYSQL_DB'),
 )
 
@@ -48,9 +48,9 @@ LOG_EVENT_TYPES = [
     'input_audio_buffer.speech_started', 'session.created'
 ]
 SHOW_TIMING_MATH = False
-HOST = "588d-212-193-4-221.ngrok-free.app"
+HOST = "e316-212-193-4-221.ngrok-free.app"
 
-app = FastAPI()
+app = FastAPI(openapi_url="/api/openapi.json", docs_url="/api/docs")
 
 origins = [
     "http://localhost",
@@ -121,7 +121,7 @@ def get_current_user(
         raise credentials_exception
     return user
 
-@app.post('/signup', response_model=UserSchema)
+@app.post('/api/signup', response_model=UserSchema)
 def signup(
     payload: CreateUserSchema = Body(), 
     session: Session=Depends(get_db)
@@ -130,7 +130,7 @@ def signup(
     payload.password_hash = User.hash_password(payload.password_hash)
     return create_user(session, user=payload)
 
-@app.post("/login", response_model=Dict)
+@app.post("/api/login", response_model=Dict)
 def login(
     payload: UserLoginSchema = Body(),
     session: Session = Depends(get_db),
@@ -155,12 +155,12 @@ def login(
 
     return user.generate_token()
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/api/", response_class=HTMLResponse)
 async def index_page():
     return {"message": "Twilio Media Stream Server is running!"}
 
 
-@app.post("/run-campaign")
+@app.post("/api/run-campaign")
 async def run_campaign(campaign_id, jwt_token, session: Session = Depends(get_db)):
     get_current_user(jwt_token, session)
     campaign_data = database.get_campaign(campaign_id)
@@ -181,7 +181,7 @@ class HandleCall(BaseModel):
     to_number: str
     host: str
 
-@app.api_route("/incoming-call", methods=["GET", "POST"])
+@app.api_route("/api/incoming-call", methods=["GET", "POST"])
 async def handle_incoming_call(campaign_id: int, request: Request):
     """Handle incoming call and return TwiML response to connect to Media Stream."""
     with open("debug_logs.txt", "w") as f:
@@ -201,7 +201,7 @@ async def handle_incoming_call(campaign_id: int, request: Request):
 
         return HTMLResponse(content=str(response), media_type="application/xml")
 
-@app.post("/outgoing-call")
+@app.post("/api/outgoing-call")
 async def make_outgoing_call(
     to_number,
     campaign_id,
@@ -226,7 +226,7 @@ async def make_outgoing_call(
 
         return {"response": "call created_successfully"}
 
-@app.websocket("/media-stream")
+@app.websocket("/stream/media-stream")
 async def handle_media_stream(websocket: WebSocket):
     """Handle WebSocket connections between Twilio and OpenAI."""
     print("Client connected")
@@ -427,7 +427,7 @@ class AssistantData(BaseModel):
     voice: str
     assistant_name: str
 
-@app.post("/assistants")
+@app.post("/api/assistants")
 def create_assistant(
     jwt_token: str,
     assistant_data: AssistantData,
@@ -444,7 +444,7 @@ def create_assistant(
 
     return response
 
-@app.get("/assistants")
+@app.get("/api/assistants")
 def get_assistants(
     jwt_token: str,
     session: Session=Depends(get_db),
@@ -453,7 +453,7 @@ def get_assistants(
     user_id = user.user_id
     return database.get_user_assistants(user_id)
 
-@app.get("/assistant")
+@app.get("/api/assistant")
 def get_assistant(
     assistant_id: int,
     jwt_token: str,
@@ -473,7 +473,7 @@ class CampaignData(BaseModel):
     recall_interval: int = Form(...)
     campaign_status: str = Form(...)
     
-@app.post("/campaign-days-of-week")
+@app.post("/api/campaign-days-of-week")
 def create_campaign_days_of_week(
     campaign_id: int,
     day_of_week_id: int,
@@ -483,7 +483,7 @@ def create_campaign_days_of_week(
     get_current_user(jwt_token, session)
     return database.create_campaign_days_of_week(campaign_id, day_of_week_id)
 
-@app.post("/campaigns")
+@app.post("/api/campaigns")
 def create_campaign(
     #campaign_data: CampaignData,
     jwt_token: str,
@@ -536,7 +536,7 @@ def create_campaign(
 
     return campaign_data
 
-@app.get("/campaigns")
+@app.get("/api/campaigns")
 def get_campaings(
     jwt_token: str,
     session: Session=Depends(get_db),
@@ -551,7 +551,7 @@ class PhoneNumber(BaseModel):
     account_sid: str
     auth_token: str
 
-@app.post("/phone-numbers")
+@app.post("/api/phone-numbers")
 def create_phone_number(
     phone_number_data: PhoneNumber,
     jwt_token: str,
@@ -566,7 +566,7 @@ def create_phone_number(
 
     return database.create_phone_number(phone_number, user_id, account_sid, auth_token)
 
-@app.get("/phone-numbers")
+@app.get("/api/phone-numbers")
 def get_phone_numbers(
     jwt_token: str,
     session: Session=Depends(get_db),
@@ -575,11 +575,11 @@ def get_phone_numbers(
     user_id = user.user_id
     return database.get_user_phone_numbers(user_id)
 
-@app.get("/days-of-week")
+@app.get("/api/days-of-week")
 def get_days_of_week():
     return database.get_days_of_week()
 
-@app.get("/campaign-days-of-week")
+@app.get("/api/campaign-days-of-week")
 def get_campaign_days_of_week(
     campaign_id: int,
     jwt_token: str,
@@ -588,7 +588,7 @@ def get_campaign_days_of_week(
     get_current_user(jwt_token, session)
     return database.get_campaign_days_of_week(campaign_id)
 
-@app.post("/knowledge")
+@app.post("/api/knowledge")
 def create_knowledge(
     jwt_token: str,
     uploaded_file: Annotated[bytes, File()],
@@ -600,7 +600,7 @@ def create_knowledge(
     user_id = user.user_id
     return database.create_knowledge(user_id, uploaded_file, file_name)
 
-@app.post("/assistant-knowledge")
+@app.post("/api/assistant-knowledge")
 def create_assistants_knowledge(
     jwt_token: str,
     session: Session=Depends(get_db),

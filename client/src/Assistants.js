@@ -21,7 +21,7 @@ import { useDropzone } from "react-dropzone"
 
 
 const Assistants = () => {
-  const base_url = '127.0.0.1:5000';
+  const base_url = 'e316-212-193-4-221.ngrok-free.app';
   const access_token = localStorage.getItem("access_token");
   const [systemPrompt, setSystemPrompt] = useState('');
   const [voice, setVoice] = useState('');

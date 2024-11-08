@@ -1,6 +1,6 @@
 services:
     db:
-        image: voice_assistants_database
+        build: database
         ports:
             - "32001:3306"
         environment:
@@ -8,17 +8,20 @@ services:
         volumes:
             - ./database:/docker-entrypoint-initdb.d/:ro
     nginx:
-        image: voice_assistants_nginx
+        build: nginx
         ports:
-            - 5001:5001
+            - 80:80
+            - 443:443
         depends_on:
-            - server
-    server:
-        image: voice_assistants_server
+            - api
+    api:
+        build: server
         links: 
             - db
+        expose:
+            - 8000
         ports:
-            - "5000:5000"
+            - 8000:8000
         environment:
             OPENAI_API_KEY: ${OPENAI_API_KEY}
             TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
