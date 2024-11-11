@@ -1,3 +1,4 @@
+
 services:
     db:
         build: database
@@ -15,13 +16,18 @@ services:
         depends_on:
             - api
         volumes:
-            - ./certbot/www:/var/www/certbot/:ro
-            - ./certbot/conf/:/etc/nginx/ssl/:ro
-    certbot:
-        image: certbot/certbot:latest
+            - /etc/letsencrypt:/etc/letsencrypt:ro
+            - /tmp/acme-challenge:/tmp/acme-challenge
+    letsencrypt:
+        container_name: "certbot"
+        image: certbot/certbot
+        command: sh -c "certbot certonly --webroot -w /tmp/acme-challenge/ -d api.voice.aismith.co --text --agree-tos --email vlad@aismith.co --rsa-key-size 4096 --verbose --keep-until-expiring --preferred-challenges=http"
+        entrypoint: ""
         volumes:
-            - ./certbot/www/:/var/www/certbot/:rw
-            - ./certbot/conf/:/etc/letsencrypt/:rw
+            - "/etc/letsencrypt:/etc/letsencrypt"
+            - "/tmp/acme-challenge:/tmp/acme-challenge"
+        environment:
+            - TERM=xterm
     api:
         build: server
         links: 
