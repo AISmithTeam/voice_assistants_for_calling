@@ -38,7 +38,7 @@ class User(Base):
     __tablename__ = "users"
     email = Column(String(225), nullable=False, unique=True)
     user_id = Column(Integer, nullable=False, primary_key=True)
-    password_hash = Column(LargeBinary, nullable=False)
+    password_hash = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=False)
 
     UniqueConstraint("email", name="uq_user_email")
