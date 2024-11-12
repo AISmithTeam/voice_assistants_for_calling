@@ -6,6 +6,7 @@ CREATE TABLE users (
 	user_id INT AUTO_INCREMENT PRIMARY KEY,
     email TEXT(256),
     password_hash TEXT(256),
+    is_active BOOLEAN,
     created_at DATETIME,
     updated_at DATETIME
 );

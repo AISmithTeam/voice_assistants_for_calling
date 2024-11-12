@@ -3,7 +3,7 @@ services:
     db:
         build: database
         ports:
-            - "32001:3306"
+            - "3306:3306"
         environment:
             MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD}
         volumes:
