@@ -7,8 +7,7 @@ CREATE TABLE users (
     email TEXT(256),
     password_hash TEXT(256),
     created_at DATETIME,
-    updated_at DATETIME,
-    updated_atusers DATETIME
+    updated_at DATETIME
 );
 
 CREATE TABLE assistants (
@@ -18,8 +17,25 @@ CREATE TABLE assistants (
     user_id INT,
     created_at DATETIME,
     updated_at DATETIME,
+    assistant_name TEXT(256),
     FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
+
+CREATE TABLE kndowledge (
+    kndowledge_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    uploaded_file LONGBLOB,
+    file_name TEXT(256),
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+)
+
+CREATE TABLE assistant_knowledge (
+    kndowledge_id INT,
+    assistant_id INT,
+    PRIMARY KEY (kndowledge_id, assistant_id),
+    FOREIGN KEY kndowledge_id REFERENCES kndowledge(kndowledge_id),
+    FOREIGN KEY assistant_id REFERENCES assistants(assistant_id)
+)
 
 CREATE TABLE telephony_providers (
 	provider_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -56,8 +72,10 @@ CREATE TABLE campaigns (
     max_recalls INT,
     recall_interval INT,
     campaign_status TEXT(32),
+    uploaded_file LONGBLOB,
     created_at DATETIME,
     updated_at DATETIME,
+    file_name TEXT(256),
     FOREIGN KEY (user_id) REFERENCES users(user_id),
     FOREIGN KEY (assistant_id) REFERENCES assistants(assistant_id),
     FOREIGN KEY (phone_number_id) REFERENCES phone_numbers(phone_number_id)
@@ -103,3 +121,4 @@ CREATE TABLE billing (
     paid BOOL,
     FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
+
