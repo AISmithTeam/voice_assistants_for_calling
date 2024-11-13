@@ -28,7 +28,7 @@ CREATE TABLE kndowledge (
     uploaded_file LONGBLOB,
     file_name TEXT(256),
     FOREIGN KEY (user_id) REFERENCES users(user_id)
-)
+);
 
 CREATE TABLE assistant_knowledge (
     knowledge_id INT,
@@ -36,7 +36,7 @@ CREATE TABLE assistant_knowledge (
     PRIMARY KEY (knowledge_id, assistant_id),
     FOREIGN KEY knowledge_id REFERENCES knowledge(knowledge_id),
     FOREIGN KEY assistant_id REFERENCES assistants(assistant_id)
-)
+);
 
 CREATE TABLE telephony_providers (
 	provider_id INT AUTO_INCREMENT PRIMARY KEY,
