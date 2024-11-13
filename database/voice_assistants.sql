@@ -23,7 +23,7 @@ CREATE TABLE assistants (
 );
 
 CREATE TABLE kndowledge (
-    kndowledge_id INT AUTO_INCREMENT PRIMARY KEY,
+    knowledge_id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT,
     uploaded_file LONGBLOB,
     file_name TEXT(256),

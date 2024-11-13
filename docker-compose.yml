@@ -1,9 +1,10 @@
 
 services:
     db:
+        container_name: "mysql_database"
         build: database
         ports:
-            - "3306:3306"
+            - "3307:3306"
         environment:
             MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD}
         volumes:

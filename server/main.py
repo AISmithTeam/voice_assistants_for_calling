@@ -26,6 +26,8 @@ from sqlalchemy.orm import Session
 from user_account import User, get_db
 from jwt.exceptions import InvalidTokenError
 
+from actions import add_appointment_to_airtable
+
 load_dotenv(override=True)
 
 # Set up Twilio client
@@ -285,6 +287,10 @@ async def handle_media_stream(websocket: WebSocket):
                     if response['type'] in LOG_EVENT_TYPES:
                         print(f"Received event: {response['type']}", response)
 
+                    if response['item']['type'] == "function_call":
+                        arguments = json.loads(response["item"]["arguments"])
+                        add_appointment_to_airtable(arguments["client_name"], arguments["appointment_details"], arguments["appointment_date"])
+
                     if response.get('type') == 'response.audio.delta' and 'delta' in response:
                         audio_payload = base64.b64encode(base64.b64decode(response['delta'])).decode('utf-8')
                         audio_delta = {
@@ -388,28 +394,8 @@ async def initialize_session(openai_ws, assistant_id):
             "turn_detection": {"type": "server_vad"},
             "input_audio_format": "g711_ulaw",
             "output_audio_format": "g711_ulaw",
-            "voice": 'verse',#assistant_data['voice'],
-            "instructions": """"Hello, and welcome to Bright Smile Dental Clinic! I’m your AI assistant. Before we begin, could you please let me know if you’d like to continue in English or another language?"
-
-If the caller selects a language:
-
-"Thank you! How can I assist you today? I’m here to help with appointments or any questions you might have about dental care."
-If the caller wants to schedule an appointment:
-
-"Great! Could I get your full name and contact number?"
-"Thanks! When would you like to come in? And is this for a check-up or a specific concern?"
-If they’re a returning patient: "Good to have you back! I’ll access your records to make sure we’re ready."
-"Your appointment is all set for [date and time]. I’ll confirm by email or SMS. Anything else I can assist with?"
-If the caller has a specific dental concern and seeks advice:
-
-For pain or discomfort: "Could you describe the pain briefly – is it sharp, or more of a dull ache? Sometimes, persistent tooth pain could mean an underlying issue. If it’s been ongoing, an appointment might be best to get this addressed thoroughly."
-For tooth sensitivity: "Sensitivity can be due to gum recession or worn enamel. Using toothpaste for sensitive teeth can help, but it’s worth checking in with the dentist to pinpoint the cause if it’s persistent."
-For other common concerns (like swelling or cosmetic questions): "Swelling often indicates an infection; a prompt dental check is advised. For cosmetic concerns, we offer various treatments – I’d recommend a consultation to review options in detail."
-If complex or urgent: "If it sounds more severe, I’d highly recommend an appointment so our team can provide a thorough check."
-
-Closing: "Thanks for reaching out to Bright Smile Dental Clinic! Looking forward to helping you keep that smile healthy and bright."
-
-You MUST talk emotionally, and 2 times fater than normal.""",#assistant_data['prompt'],
+            "voice": assistant_data['voice'],
+            "instructions": assistant_data['prompt'],
             "modalities": ["text", "audio"],
             "temperature": 0.8,
         }
