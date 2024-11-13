@@ -31,10 +31,10 @@ CREATE TABLE kndowledge (
 )
 
 CREATE TABLE assistant_knowledge (
-    kndowledge_id INT,
+    knowledge_id INT,
     assistant_id INT,
-    PRIMARY KEY (kndowledge_id, assistant_id),
-    FOREIGN KEY kndowledge_id REFERENCES kndowledge(kndowledge_id),
+    PRIMARY KEY (knowledge_id, assistant_id),
+    FOREIGN KEY knowledge_id REFERENCES knowledge(knowledge_id),
     FOREIGN KEY assistant_id REFERENCES assistants(assistant_id)
 )
 
