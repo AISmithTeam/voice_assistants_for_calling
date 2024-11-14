@@ -55,6 +55,7 @@ HOST = "e316-212-193-4-221.ngrok-free.app"
 app = FastAPI(openapi_url="/api/openapi.json", docs_url="/api/docs")
 
 origins = [
+    "*",
     "http://localhost",
     "http://localhost:3000",
 ]
