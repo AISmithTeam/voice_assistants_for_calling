@@ -34,8 +34,8 @@ CREATE TABLE assistant_knowledge (
     knowledge_id INT,
     assistant_id INT,
     PRIMARY KEY (knowledge_id, assistant_id),
-    FOREIGN KEY knowledge_id REFERENCES knowledge(knowledge_id),
-    FOREIGN KEY assistant_id REFERENCES assistants(assistant_id)
+    FOREIGN KEY (knowledge_id) REFERENCES knowledge(knowledge_id),
+    FOREIGN KEY (assistant_id) REFERENCES assistants(assistant_id)
 );
 
 CREATE TABLE telephony_providers (
