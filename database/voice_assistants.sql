@@ -22,7 +22,7 @@ CREATE TABLE assistants (
     FOREIGN KEY (user_id) REFERENCES users(user_id)
 );
 
-CREATE TABLE kndowledge (
+CREATE TABLE knowledge (
     knowledge_id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT,
     uploaded_file LONGBLOB,
