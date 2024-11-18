@@ -47,10 +47,10 @@ PORT = int(os.getenv('PORT', 5050))
 LOG_EVENT_TYPES = [
     'response.content.done', 'rate_limits.updated', 'response.done',
     'input_audio_buffer.committed', 'input_audio_buffer.speech_stopped',
-    'input_audio_buffer.speech_started', 'session.created'
+    'input_audio_buffer.speech_started', 'session.created', 'error'
 ]
 SHOW_TIMING_MATH = False
-HOST = "e316-212-193-4-221.ngrok-free.app"
+HOST = "api.voice.aismith.co"
 
 app = FastAPI(openapi_url="/api/openapi.json", docs_url="/api/docs")
 
@@ -195,9 +195,9 @@ async def handle_incoming_call(campaign_id: int, request: Request):
         response.pause(length=1)
         host = request.url.hostname
         connect = Connect()
-        stream = connect.stream(url=f'wss://{host}/media-stream')
+        stream = connect.stream(url=f'wss://{HOST}/stream/media-stream')
         f.write("stream created\n")
-        
+
         stream.parameter(name='campaign_id', value=campaign_id)
         response.append(connect)
         f.write("create stream function returned\n")
@@ -222,7 +222,7 @@ async def make_outgoing_call(
         call = twilio_client.calls.create(
             to=to_number,
             from_=from_number,
-            url=f"https://{HOST}/incoming-call?campaign_id={campaign_id}"
+            url=f"https://{HOST}/api/incoming-call?campaign_id={campaign_id}"
         )
         f.write("oudbound call function returned\n")
 
@@ -248,7 +248,7 @@ async def handle_media_stream(websocket: WebSocket):
         last_assistant_item = None
         mark_queue = []
         response_start_timestamp_twilio = None
-        
+
         async def receive_from_twilio():
             """Receive audio data from Twilio and send it to the OpenAI Realtime API."""
             nonlocal stream_sid, latest_media_timestamp
@@ -261,11 +261,13 @@ async def handle_media_stream(websocket: WebSocket):
                             "type": "input_audio_buffer.append",
                             "audio": data['media']['payload']
                         }
+                        print("twilio send: ", audio_append)
                         await openai_ws.send(json.dumps(audio_append))
                     elif data['event'] == 'start':
                         stream_sid = data['start']['streamSid']
                         campaign_id = data['start']['customParameters']['campaign_id']
                         assistant_id = database.get_campaign(campaign_id)['assistant_id']
+                        print("initializing session")
                         await initialize_session(openai_ws, assistant_id)
                         print(f"Incoming stream has started {stream_sid}")
                         response_start_timestamp_twilio = None
@@ -282,13 +284,15 @@ async def handle_media_stream(websocket: WebSocket):
         async def send_to_twilio():
             """Receive events from the OpenAI Realtime API, send audio back to Twilio."""
             nonlocal stream_sid, last_assistant_item, response_start_timestamp_twilio
+            print("sent_to_twilio INVOKED")
             try:
                 async for openai_message in openai_ws:
                     response = json.loads(openai_message)
                     if response['type'] in LOG_EVENT_TYPES:
                         print(f"Received event: {response['type']}", response)
+                        await websocket.send_json(response) # DELETE IF TWILIO NOT IGNORES
 
-                    if response['item']['type'] == "function_call":
+                    if response['type'] == "function_call":
                         arguments = json.loads(response["item"]["arguments"])
                         add_appointment_to_airtable(arguments["client_name"], arguments["appointment_details"], arguments["appointment_date"])
 
@@ -301,7 +305,7 @@ async def handle_media_stream(websocket: WebSocket):
                                 "payload": audio_payload
                             }
                         }
-                        #print("Response from server received: ", json.dumps(audio_delta))
+                        print("Response from server received: ", json.dumps(audio_delta))
                         await websocket.send_json(audio_delta)
 
                         if response_start_timestamp_twilio is None:
@@ -519,7 +523,7 @@ def create_campaign(
 
     if campaign_type == "inbound":
         client = Client(account_sid, auth_token)
-        incoming_phone_number = client.incoming_phone_numbers('PN4242228effc5204a3e7303879548cb9b').update(voice_url=f"https://{HOST}/incoming-call?campaign_id={campaign_id}")
+        incoming_phone_number = client.incoming_phone_numbers('PN4242228effc5204a3e7303879548cb9b').update(voice_url=f"https://{HOST}/api/incoming-call?campaign_id={campaign_id}")
 
     return campaign_data
 
