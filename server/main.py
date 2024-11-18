@@ -187,22 +187,18 @@ class HandleCall(BaseModel):
 @app.api_route("/api/incoming-call", methods=["GET", "POST"])
 async def handle_incoming_call(campaign_id: int, request: Request):
     """Handle incoming call and return TwiML response to connect to Media Stream."""
-    with open("debug_logs.txt", "w") as f:
-        f.write(f"create stream function invoked with campaign_id={campaign_id}\n")
-        response = VoiceResponse()
-        # <Say> punctuation to improve text-to-speech flow
-        response.say("Please wait while we connect you")
-        response.pause(length=1)
-        host = request.url.hostname
-        connect = Connect()
-        stream = connect.stream(url=f'wss://{HOST}/stream/media-stream')
-        f.write("stream created\n")
+    response = VoiceResponse()
+    # <Say> punctuation to improve text-to-speech flow
+    response.say("Please wait while we connect you")
+    response.pause(length=1)
+    host = request.url.hostname
+    connect = Connect()
+    stream = connect.stream(url=f'wss://{HOST}/stream/media-stream')
 
-        stream.parameter(name='campaign_id', value=campaign_id)
-        response.append(connect)
-        f.write("create stream function returned\n")
+    stream.parameter(name='campaign_id', value=campaign_id)
+    response.append(connect)
 
-        return HTMLResponse(content=str(response), media_type="application/xml")
+    return HTMLResponse(content=str(response), media_type="application/xml")
 
 @app.post("/api/outgoing-call")
 async def make_outgoing_call(
@@ -261,7 +257,7 @@ async def handle_media_stream(websocket: WebSocket):
                             "type": "input_audio_buffer.append",
                             "audio": data['media']['payload']
                         }
-                        print("twilio send: ", audio_append)
+                        #print("twilio send: ", audio_append)
                         await openai_ws.send(json.dumps(audio_append))
                     elif data['event'] == 'start':
                         stream_sid = data['start']['streamSid']
