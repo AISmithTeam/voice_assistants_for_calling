@@ -1,4 +1,7 @@
+from dotenv import load_dotenv
 import os
+
+load_dotenv(override=True)
 
 # Database url configuration
 SECRET_KEY = "test"

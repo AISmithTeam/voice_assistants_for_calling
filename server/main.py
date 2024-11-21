@@ -460,7 +460,7 @@ class UpdateAssistant(BaseModel):
     prompt: str
     vocie: str
     assistant_name: str
-    uploadet_files: List[Knowledge]
+    uploaded_files: List[Knowledge]
 
 @app.patch("/api/assistant")
 def update_assistant(
@@ -474,7 +474,7 @@ def update_assistant(
     assistant_name = assistant_data.assistant_name
     prompt = assistant_data.prompt
     voice = assistant_data.vocie
-    uploaded_files = assistant_data.uploadet_files 
+    uploaded_files = assistant_data.uploaded_files 
     return database.update_assistant(
         user_id=user_id,
         assistant_id=assistant_id,
@@ -483,6 +483,15 @@ def update_assistant(
         voice=voice,
         uploaded_files=uploaded_files,
     )
+
+@app.delete("/api/assistant")
+def delete_assistant(
+    assistant_id: int,
+    jwt_token: str,
+    session: Session=Depends(get_db),
+):
+    get_current_user(jwt_token, session)
+    return database.delete_assistant(assistant_id)
 
 class CampaignData(BaseModel):
     assistant_id: int = Form(...)
@@ -522,15 +531,6 @@ def create_campaign(
 ):
     user = get_current_user(jwt_token, session)
     user_id = user.user_id
-    """assistant_id = campaign_data.assistant_id
-    phone_number_id = campaign_data.phone_number_id
-    campaign_type = campaign_data.campaign_type
-    start_time = campaign_data.start_time
-    end_time = campaign_data.end_time
-    max_recalls = campaign_data.max_recalls
-    recall_interval = campaign_data.recall_interval
-    campaign_status = campaign_data.campaign_status
-    uploaded_file = uploaded_file"""
     campaign_data = database.create_campaign(
         user_id,
         assistant_id,
@@ -665,7 +665,15 @@ def create_assistants_knowledge(
 ):
     get_current_user(jwt_token, session)
     return database.create_assistant_knowledge(assistant_id, knowledge_id)
-    
+
+@app.get("/api/assistant-knowledge")
+def get_assisant_knowledge(
+    jwt_token: str,
+    session: Session=Depends(get_db),
+    assistant_id: int=Form(...),
+):
+    get_current_user(jwt_token, session)
+    return database.get_assistant_knowledge(assistant_id)
 
 if __name__ == "__main__":
     import uvicorn
