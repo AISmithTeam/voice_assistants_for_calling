@@ -145,8 +145,8 @@ class Database:
         voice: str,
         uploaded_files: list[object],
     ):
-        update_assistant_query = ("UPDATE assistants"
-                                  "SET prompt=%(prompt)s, voice=%(voice)s, assistant_name=%(assistant_name)s"
+        update_assistant_query = ("UPDATE assistants "
+                                  "SET prompt=%(prompt)s, voice=%(voice)s, assistant_name=%(assistant_name)s, updated_at=%(updated_at)s "
                                   "WHERE assistant_id=%(assistant_id)s")
         assistant_data = {
             "assistant_id": assistant_id,
@@ -159,28 +159,27 @@ class Database:
         with mysql.connector.connect(**self.connection_parameters) as connection:
             cursor = connection.cursor(buffered=True)
             cursor.execute(update_assistant_query, assistant_data)
-            cursor.commit()
+            connection.commit()
             connection.close()
 
         existing_knowledge = self.get_assistant_knowledge(assistant_id=assistant_id)
         existing_knowledge_ids = [knowledge_item["knowledge_id"] for knowledge_item in existing_knowledge]
         knowledgebase = existing_knowledge
-        
         for knowledge in uploaded_files:
             # maybe it's not more effective than just update knowledgebase entirely, deleting all old knowledge (especially for large number of files)
-            if knowledge["knowledge_id"] in existing_knowledge_ids:
+            if knowledge.knowledge_id in existing_knowledge_ids:
                 continue
 
             new_knowledge = self.create_knowledge(
                 user_id=user_id,
-                file=knowledge["file"],
-                file_name=knowledge["file_name"],
+                file=knowledge.file,
+                file_name=knowledge.file_name,
             )
 
             # rename key
             new_knowledge["knowledge_id"] = new_knowledge.pop("id")
             knowledgebase.append(new_knowledge)
-            new_knowledge_id = new_knowledge
+            new_knowledge_id = new_knowledge["knowledge_id"]
 
             self.create_assistant_knowledge(
                 assistant_id=assistant_id,
@@ -196,9 +195,14 @@ class Database:
         self,
         assistant_id: int,
     ):
-        delete_assistant_query = f"DELETE FROM assistants WHERE assisatnt_id={assistant_id}"
+        assistant_knowledge = self.get_assistant_knowledge(assistant_id)
+        delete_assistant_query = f"DELETE FROM assistants WHERE assistant_id={assistant_id}"
         with mysql.connector.connect(**self.connection_parameters) as connection:
-            cursor = connection.cursor(buffered=True) 
+            cursor = connection.cursor(buffered=True)
+            for knowledge in assistant_knowledge:
+                cursor.execute(f"DELETE FROM assistant_knowledge WHERE knowledge_id={knowledge["knowledge_id"]}")
+                cursor.execute(f"DELETE FROM knowledge WHERE knowledge_id={knowledge["knowledge_id"]}")
+
             cursor.execute(delete_assistant_query)
             connection.commit()
             connection.close()
@@ -326,8 +330,8 @@ class Database:
         uploaded_file: bytes,
         file_name: str,
     ):
-        update_campaign_query = ("UPDATE campaigns"
-                                 "SET assistant_id=%(assistant_id)s, phone_number_id=%(phone_number_id)s, campaign_type=%(campaign_type)s, start_time=%(start_time)s, end_time=%(end_time)s, max_recalls=%(max_recalls)s, recall_interval=%(recall_interval)s, campaign_status=%(campaign_status)s, uploaded_file=%(uploaded_file)s, file_name=%(file_name)s"
+        update_campaign_query = ("UPDATE campaigns "
+                                 "SET assistant_id=%(assistant_id)s, phone_number_id=%(phone_number_id)s, campaign_type=%(campaign_type)s, start_time=%(start_time)s, end_time=%(end_time)s, max_recalls=%(max_recalls)s, recall_interval=%(recall_interval)s, campaign_status=%(campaign_status)s, uploaded_file=%(uploaded_file)s, file_name=%(file_name)s "
                                  "WHERE campaign_id=%(campaign_id)s")
         campaign_data = {
             "campaign_id": campaign_id,
@@ -555,10 +559,10 @@ class Database:
             self,
             assistant_id: int
     ):
-        get_assistant_knowledgebase_query = ("SELECT *" 
-                                             "FROM assistant_knowledge"
-                                             "INNER JOIN knowledge"
-                                             "ON knowledge.knowledge_id=assistant_knowledge.knowledge_id"
+        get_assistant_knowledgebase_query = ("SELECT * " 
+                                             "FROM assistant_knowledge "
+                                             "INNER JOIN knowledge "
+                                             "ON knowledge.knowledge_id=assistant_knowledge.knowledge_id "
                                             f"WHERE assistant_knowledge.assistant_id={assistant_id}")
 
         with mysql.connector.connect(**self.connection_parameters) as connection:
@@ -577,6 +581,3 @@ class Database:
             connection.close()
 
             return knowledgebase
-        
-        
-        

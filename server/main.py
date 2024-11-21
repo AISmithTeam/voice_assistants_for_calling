@@ -470,11 +470,11 @@ def update_assistant(
 ):
     user = get_current_user(jwt_token, session)
     user_id = user.user_id
-    assistant_id = assistant_data.assistant_id,
+    assistant_id = assistant_data.assistant_id
     assistant_name = assistant_data.assistant_name
     prompt = assistant_data.prompt
     voice = assistant_data.vocie
-    uploaded_files = assistant_data.uploaded_files 
+    uploaded_files = assistant_data.uploaded_files
     return database.update_assistant(
         user_id=user_id,
         assistant_id=assistant_id,
@@ -557,7 +557,7 @@ def create_campaign(
 
     return campaign_data
 
-@app.post("/api/campaigns")
+@app.patch("/api/campaigns")
 def create_campaign(
     jwt_token: str,
     uploaded_file: Annotated[bytes, File()],
@@ -591,6 +591,15 @@ def create_campaign(
     )
 
     return campaign_data
+
+@app.delete("/api/campaigns")
+def delete_campaign(
+    campaign_id: int,
+    jwt_token: str,
+    session: Session=Depends(get_db),
+):
+    get_current_user(jwt_token, session)
+    return database.delete_campaign(campaign_id)
 
 @app.get("/api/campaigns")
 def get_campaings(
