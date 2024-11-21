@@ -458,7 +458,7 @@ class Knowledge(BaseModel):
 class UpdateAssistant(BaseModel):
     assistant_id: int
     prompt: str
-    vocie: str
+    voice: str
     assistant_name: str
     uploaded_files: List[Knowledge]
 
