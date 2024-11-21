@@ -677,9 +677,9 @@ def create_assistants_knowledge(
 
 @app.get("/api/assistant-knowledge")
 def get_assisant_knowledge(
+    assistant_id: int,
     jwt_token: str,
     session: Session=Depends(get_db),
-    assistant_id: int=Form(...),
 ):
     get_current_user(jwt_token, session)
     return database.get_assistant_knowledge(assistant_id)
