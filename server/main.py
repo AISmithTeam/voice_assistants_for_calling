@@ -473,7 +473,7 @@ def update_assistant(
     assistant_id = assistant_data.assistant_id
     assistant_name = assistant_data.assistant_name
     prompt = assistant_data.prompt
-    voice = assistant_data.vocie
+    voice = assistant_data.voice
     uploaded_files = assistant_data.uploaded_files
     return database.update_assistant(
         user_id=user_id,
