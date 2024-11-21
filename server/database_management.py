@@ -191,6 +191,19 @@ class Database:
             "assistant_data": assistant_data,
             "knowledgebase": knowledgebase,
         }
+    
+    def delete_assistant(
+        self,
+        assistant_id: int,
+    ):
+        delete_assistant_query = f"DELETE FROM assistants WHERE assisatnt_id={assistant_id}"
+        with mysql.connector.connect(**self.connection_parameters) as connection:
+            cursor = connection.cursor(buffered=True) 
+            cursor.execute(delete_assistant_query)
+            connection.commit()
+            connection.close()
+        
+        return {"delete.assistant_id": assistant_id}
 
     def create_campaign(
         self,
@@ -337,7 +350,20 @@ class Database:
             connection.commit()
             connection.close()
 
-        return campaign_data        
+        return campaign_data  
+
+    def delete_campaign(
+        self,
+        campaign_id: int,
+    ):
+        delete_campaign_query = f"DELETE FROM campaigns WHERE campaign_id={campaign_id}"
+        with mysql.connector.connect(**self.connection_parameters) as connection:
+            cursor = connection.cursor(buffered=True) 
+            cursor.execute(delete_campaign_query)
+            connection.commit()
+            connection.close()
+        
+        return {"delete.campaignt_id": campaign_id}      
 
     def create_phone_number(
         self,
