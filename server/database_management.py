@@ -106,7 +106,7 @@ class Database:
             return assistants
     
     def get_assistant(self, assistant_id):
-         with mysql.connector.connect(**self.connection_parameters) as connection:
+        with mysql.connector.connect(**self.connection_parameters) as connection:
             cursor = connection.cursor(buffered=True)
             get_assistants = ("SELECT * FROM assistants WHERE assistant_id=%s")
             cursor.execute(get_assistants, (assistant_id,))
@@ -122,6 +122,76 @@ class Database:
             ][0]
             connection.close()
             return assistant
+         
+    def delete_assistant(
+        self,
+        assistant_id: int,
+    ):
+        remove_assistant = f"DELETE FROM assistants WHERE assistant_id={assistant_id}"
+        with mysql.connector.connect(**self.connection_parameters) as connection:
+            cursor = connection.cursor(buffered=True)
+            cursor.execute(remove_assistant)
+            connection.commit()
+            connection.close()
+
+        return {"deleted.assistant_id": assistant_id}
+    
+    def update_assistant(
+        self,
+        user_id: int,
+        assistant_id: int,
+        assistant_name: str,
+        prompt: str,
+        voice: str,
+        uploaded_files: list[object],
+    ):
+        update_assistant_query = ("UPDATE assistants"
+                                  "SET prompt=%(prompt)s, voice=%(voice)s, assistant_name=%(assistant_name)s"
+                                  "WHERE assistant_id=%(assistant_id)s")
+        assistant_data = {
+            "assistant_id": assistant_id,
+            "assistant_name": assistant_name,
+            "prompt": prompt,
+            "voice": voice,
+            "updated_at": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        }
+
+        with mysql.connector.connect(**self.connection_parameters) as connection:
+            cursor = connection.cursor(buffered=True)
+            cursor.execute(update_assistant_query, assistant_data)
+            cursor.commit()
+            connection.close()
+
+        existing_knowledge = self.get_assistant_knowledge(assistant_id=assistant_id)
+        existing_knowledge_ids = [knowledge_item["knowledge_id"] for knowledge_item in existing_knowledge]
+        knowledgebase = existing_knowledge
+        
+        for knowledge in uploaded_files:
+            # maybe it's not more effective than just update knowledgebase entirely, deleting all old knowledge (especially for large number of files)
+            if knowledge["knowledge_id"] in existing_knowledge_ids:
+                continue
+
+            new_knowledge = self.create_knowledge(
+                user_id=user_id,
+                file=knowledge["file"],
+                file_name=knowledge["file_name"],
+            )
+
+            # rename key
+            new_knowledge["knowledge_id"] = new_knowledge.pop("id")
+            knowledgebase.append(new_knowledge)
+            new_knowledge_id = new_knowledge
+
+            self.create_assistant_knowledge(
+                assistant_id=assistant_id,
+                knowledge_id=new_knowledge_id,
+            )
+
+        return {
+            "assistant_data": assistant_data,
+            "knowledgebase": knowledgebase,
+        }
+
 
     def create_campaign(
         self,
@@ -230,11 +300,11 @@ class Database:
             return campaign
 
     def create_phone_number(
-            self,
-            phone_number: str,
-            user_id: int,
-            account_sid: str,
-            auth_token: str,
+        self,
+        phone_number: str,
+        user_id: int,
+        account_sid: str,
+        auth_token: str,
     ):
         with mysql.connector.connect(**self.connection_parameters) as connection:
             cursor = connection.cursor(buffered=True)
@@ -375,7 +445,7 @@ class Database:
                 "uploaded_file": file,
                 "file_name": file_name,
             }
-
+        
     def get_user_knowledge(
         self,
         user_id,
@@ -414,3 +484,33 @@ class Database:
             connection.close()
 
             return knowledge_data
+        
+    def get_assistant_knowledge(
+            self,
+            assistant_id: int
+    ):
+        get_assistant_knowledgebase_query = ("SELECT *" 
+                                             "FROM assistant_knowledge"
+                                             "INNER JOIN knowledge"
+                                             "ON knowledge.knowledge_id=assistant_knowledge.knowledge_id"
+                                            f"WHERE assistant_knowledge.assistant_id={assistant_id}")
+
+        with mysql.connector.connect(**self.connection_parameters) as connection:
+            cursor = connection.cursor(buffered=True)
+            cursor.execute(get_assistant_knowledgebase_query)
+            knowledgebase=[
+                {
+                    "knowledge_id": assistant_knowledge[0],
+                    "assistant_id": assistant_knowledge[1],
+                    "user_id": assistant_knowledge[3],
+                    "uploaded_file": assistant_knowledge[4],
+                    "file_name": assistant_knowledge[5],
+                } for assistant_knowledge in cursor.fetchall()
+            ]
+
+            connection.close()
+
+            return knowledgebase
+        
+        
+        

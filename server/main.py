@@ -7,7 +7,7 @@ import settings
 import websockets
 from database_management import Database
 
-from typing import Dict, Annotated
+from typing import Dict, Annotated, List
 
 from twilio.rest import Client
 from dotenv import load_dotenv
@@ -448,7 +448,41 @@ def get_assistant(
 ):
     # for validation only
     get_current_user(jwt_token, session)
-    return database.get_assistant(assistant_id) 
+    return database.get_assistant(assistant_id)
+
+class Knowledge(BaseModel):
+    knowledge_id: int
+    file: bytes
+    file_name: str
+
+class UpdateAssistant(BaseModel):
+    assistant_id: int
+    prompt: str
+    vocie: str
+    assistant_name: str
+    uploadet_files: List[Knowledge]
+
+@app.patch("/api/update")
+def update_assistant(
+    assistant_data: UpdateAssistant,
+    jwt_token: str,
+    session: Session=Depends(get_db),
+):
+    user = get_current_user(jwt_token, session)
+    user_id = user.user_id
+    assistant_id = assistant_data.assistant_id,
+    assistant_name = assistant_data.assistant_name
+    prompt = assistant_data.prompt
+    voice = assistant_data.vocie
+    uploaded_files = assistant_data.uploadet_files 
+    return database.update_assistant(
+        user_id=user_id,
+        assistant_id=assistant_id,
+        assistant_name=assistant_name,
+        prompt=prompt,
+        voice=voice,
+        uploaded_files=uploaded_files,
+    )
 
 class CampaignData(BaseModel):
     assistant_id: int = Form(...)
