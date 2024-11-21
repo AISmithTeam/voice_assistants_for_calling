@@ -192,7 +192,6 @@ class Database:
             "knowledgebase": knowledgebase,
         }
 
-
     def create_campaign(
         self,
         user_id: int,
@@ -298,6 +297,47 @@ class Database:
                 } for campaign in cursor.fetchall()
             ][0]
             return campaign
+    
+    def update_campaign(
+        self,
+        campaign_id: int,
+        user_id: int,
+        assistant_id: int,
+        phone_number_id: int,
+        campaign_type: str,
+        start_time: str,
+        end_time: str,
+        max_recalls: int,
+        recall_interval: int,
+        campaign_status: str,
+        uploaded_file: bytes,
+        file_name: str,
+    ):
+        update_campaign_query = ("UPDATE campaigns"
+                                 "SET assistant_id=%(assistant_id)s, phone_number_id=%(phone_number_id)s, campaign_type=%(campaign_type)s, start_time=%(start_time)s, end_time=%(end_time)s, max_recalls=%(max_recalls)s, recall_interval=%(recall_interval)s, campaign_status=%(campaign_status)s, uploaded_file=%(uploaded_file)s, file_name=%(file_name)s"
+                                 "WHERE campaign_id=%(campaign_id)s")
+        campaign_data = {
+            "campaign_id": campaign_id,
+            "user_id": user_id,
+            "assistant_id": assistant_id,
+            "phone_number_id": phone_number_id,
+            "campaign_type": campaign_type,
+            "start_time": start_time,
+            "end_time": end_time,
+            "max_recalls": max_recalls,
+            "recall_interval": recall_interval,
+            "campaign_status": campaign_status,
+            "uploaded_file": uploaded_file,
+            "file_name": file_name,
+        }
+
+        with mysql.connector.connect(**self.connection_parameters) as connection:
+            cursor = connection.cursor(buffered=True)
+            cursor.execute(update_campaign_query, campaign_data)
+            connection.commit()
+            connection.close()
+
+        return campaign_data        
 
     def create_phone_number(
         self,

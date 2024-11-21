@@ -462,7 +462,7 @@ class UpdateAssistant(BaseModel):
     assistant_name: str
     uploadet_files: List[Knowledge]
 
-@app.patch("/api/update")
+@app.patch("/api/assistant")
 def update_assistant(
     assistant_data: UpdateAssistant,
     jwt_token: str,
@@ -554,6 +554,41 @@ def create_campaign(
     if campaign_type == "inbound":
         client = Client(account_sid, auth_token)
         incoming_phone_number = client.incoming_phone_numbers('PN4242228effc5204a3e7303879548cb9b').update(voice_url=f"https://{HOST}/api/incoming-call?campaign_id={campaign_id}")
+
+    return campaign_data
+
+@app.post("/api/campaigns")
+def create_campaign(
+    jwt_token: str,
+    uploaded_file: Annotated[bytes, File()],
+    file_name: str = Form(...),
+    assistant_id: int = Form(...),
+    campaign_id: int = Form(...),
+    phone_number_id: int = Form(...),
+    campaign_type: str = Form(...),
+    start_time: str = Form(...),
+    end_time: str = Form(...),
+    max_recalls: int = Form(...),
+    recall_interval: int = Form(...),
+    campaign_status: str = Form(...),
+    session: Session=Depends(get_db),
+):
+    user = get_current_user(jwt_token, session)
+    user_id = user.user_id
+    campaign_data = database.update_campaign(
+        campaign_id,
+        user_id,
+        assistant_id,
+        phone_number_id,
+        campaign_type,
+        start_time,
+        end_time,
+        max_recalls,
+        recall_interval,
+        campaign_status,
+        uploaded_file,
+        file_name,
+    )
 
     return campaign_data
 
