@@ -288,9 +288,13 @@ async def handle_media_stream(websocket: WebSocket):
                         print(f"Received event: {response['type']}", response)
                         await websocket.send_json(response) # DELETE IF TWILIO NOT IGNORES
 
-                    if response['type'] == "function_call":
-                        arguments = json.loads(response["item"]["arguments"])
-                        add_appointment_to_airtable(arguments["client_name"], arguments["appointment_details"], arguments["appointment_date"])
+                    if 'response' in response:
+                        if 'output' in response['response']:
+                            for item in response['response']['output']:
+                                if item['type'] == "function_call":
+                                    arguments = json.loads(item["arguments"])
+                                    print('ARGUMENTS: ', arguments)
+                                    add_appointment_to_airtable(arguments["client_name"], arguments["appointment_details"], arguments["appointment_date"])
 
                     if response.get('type') == 'response.audio.delta' and 'delta' in response:
                         audio_payload = base64.b64encode(base64.b64decode(response['delta'])).decode('utf-8')
