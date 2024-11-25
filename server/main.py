@@ -399,6 +399,27 @@ async def initialize_session(openai_ws, assistant_id):
             "instructions": assistant_data['prompt'],
             "modalities": ["text", "audio"],
             "temperature": 0.8,
+            "tools": [
+                {
+                    "type": "function",
+                    "name": "add_appointment_to_airtable",
+                    "description": "create appointment with description, time and client's name",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "client_name": {
+                                "type": "string"
+                            },
+                            "appointment_details": {
+                                "type": "string"
+                            },
+                            "appointment_date": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            ]
         }
     }
     print('Sending session update:', json.dumps(session_update))
