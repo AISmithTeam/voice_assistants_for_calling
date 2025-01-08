@@ -1,11 +1,15 @@
+from twilio.rest import Client
 import os
 import jwt
 import json
 import base64
 import asyncio
+import requests
 import settings
 import websockets
+import datetime
 from database_management import Database
+from bisect import bisect_left
 
 from typing import Dict, Annotated, List
 
@@ -114,7 +118,7 @@ def get_current_user(
     try:
         payload = jwt.decode(jwt_token, settings.SECRET_KEY, algorithms=["HS256"])
         email: str = payload.get("email")
-        if not email:
+        debug_sequence_numbers = []        if not email:
             raise credentials_exception
         token_data = TokenData(email=email)
     except InvalidTokenError:
@@ -196,7 +200,27 @@ async def handle_incoming_call(campaign_id: int, request: Request):
     stream.parameter(name='campaign_id', value=campaign_id)
     response.append(connect)
 
+    twilio_auth_token = '29671eed2df6212199c0b996c567b783'
+
+    call_data = (await request.form()) .__dict__['_dict']
+    asyncio.create_task(help_create_recording(call_sid=call_data['CallSid'], account_sid=call_data['AccountSid'], auth_token=twilio_auth_token))
+
     return HTMLResponse(content=str(response), media_type="application/xml")
+
+
+# helper function to delay recording creation to the moment whem call is in progress
+async def help_create_recording(
+    call_sid: str,
+    account_sid: str,
+    auth_token: str,
+):
+    call_status = requests.get(f'https://{account_sid}:{auth_token}@api.twilio.com/2010-04-01/Accounts/{account_sid}/Calls/{call_sid}.json').json()
+    while call_status['status'] != 'in-progress':
+        call_status = requests.get(f'https://{account_sid}:{auth_token}@api.twilio.com/2010-04-01/Accounts/{account_sid}/Calls/{call_sid}.json').json()
+        await asyncio.sleep(0.01)
+    create_recording_response = requests.post(f'https://{account_sid}:{auth_token}@api.twilio.com/2010-04-01/Accounts/{account_sid}/Calls/{call_sid}/Recordings.json')
+    return create_recording_response
+
 
 @app.post("/api/outgoing-call")
 async def make_outgoing_call(
@@ -216,7 +240,7 @@ async def make_outgoing_call(
         call = twilio_client.calls.create(
             to=to_number,
             from_=from_number,
-            url=f"https://{HOST}/api/incoming-call?campaign_id={campaign_id}"
+            url=f"https://{HOST}/api/incoming-call?campaign_id={campaign_id}&phone_number={to_number}"
         )
         f.write("oudbound call function returned\n")
 
@@ -243,6 +267,11 @@ async def handle_media_stream(websocket: WebSocket):
         mark_queue = []
         response_start_timestamp_twilio = None
 
+        debug_sequence_numbers = []
+        def check_if_message_is_repeated(previous_messages, current_message):
+            i = bisect_left(previous_messages, current_message)
+            return i != len(previous_messages) and previous_messages[i] == current_message
+
         async def receive_from_twilio():
             """Receive audio data from Twilio and send it to the OpenAI Realtime API."""
             nonlocal stream_sid, latest_media_timestamp
@@ -255,6 +284,8 @@ async def handle_media_stream(websocket: WebSocket):
                             "type": "input_audio_buffer.append",
                             "audio": data['media']['payload']
                         }
+                        if check_if_message_is_repeated(debug_sequence_numbers, data['sequenceNumber']): continue
+                        debug_sequence_numbers.append(data['sequenceNumber'])
                         #print("twilio send: ", audio_append)
                         await openai_ws.send(json.dumps(audio_append))
                     elif data['event'] == 'start':
@@ -284,7 +315,6 @@ async def handle_media_stream(websocket: WebSocket):
                     response = json.loads(openai_message)
                     if response['type'] in LOG_EVENT_TYPES:
                         print(f"Received event: {response['type']}", response)
-                        await websocket.send_json(response) # DELETE IF TWILIO NOT IGNORES
 
                     if 'response' in response:
                         if 'output' in response['response']:
@@ -428,7 +458,7 @@ async def initialize_session(openai_ws, assistant_id):
     await openai_ws.send(json.dumps(session_update))
 
     # Uncomment the next line to have the AI speak first
-    # await send_initial_conversation_item(openai_ws)
+    await send_initial_conversation_item(openai_ws)
 
 
 
@@ -723,6 +753,24 @@ def get_assisant_knowledge(
 ):
     get_current_user(jwt_token, session)
     return database.get_assistant_knowledge(assistant_id)
+
+@app.get("/api/twilio-records")
+def fetch_twilio_records(phone_number: str, account_sid: str, auth_token: str, inbound: bool, limit: int):
+    print(account_sid, auth_token)
+    try:
+        client = Client(account_sid, auth_token)
+        extract_payload = {
+            "to" if inbound else "from_": phone_number,
+            "limit": limit,
+        }
+        recordings = []
+        for call in client.calls.list(**extract_payload):
+            call = call.__dict__
+            call.pop("_version")
+            recordings.append(call)
+        return recordings
+    except Exception as e:
+        return {"error": e}
 
 if __name__ == "__main__":
     import uvicorn
