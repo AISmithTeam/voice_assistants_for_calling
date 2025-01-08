@@ -189,8 +189,6 @@ async def handle_incoming_call(campaign_id: int, request: Request):
     """Handle incoming call and return TwiML response to connect to Media Stream."""
     response = VoiceResponse()
     # <Say> punctuation to improve text-to-speech flow
-    response.say("Please wait while we connect you")
-    response.pause(length=1)
     host = request.url.hostname
     connect = Connect()
     stream = connect.stream(url=f'wss://{HOST}/stream/media-stream')
@@ -380,7 +378,7 @@ async def send_initial_conversation_item(openai_ws):
             "content": [
                 {
                     "type": "input_text",
-                    "text": "Greet the user with 'Hello there! I am an AI voice assistant powered by Twilio and the OpenAI Realtime API. You can ask me for facts, jokes, or anything you can imagine. How can I help you?'"
+                    "text": "Greet the user."
                 }
             ]
         }
@@ -435,6 +433,11 @@ async def initialize_session(openai_ws, assistant_id):
 
 
 class AssistantData(BaseModel):
+    assistant_type: str = "openai-realtime"
+    llm_provider: str = "openai"
+    voice_provider: str = "openai"
+    transcriber_provider: str = None
+    transcriber: str = None
     prompt: str
     voice: str
     assistant_name: str
@@ -451,8 +454,9 @@ def create_assistant(
     prompt = assistant_data.prompt
     voice = assistant_data.voice
     assistant_name = assistant_data.assistant_name
-    
-    response = database.create_assistant(user_id, prompt, voice, assistant_name)
+
+    if assistant_data.assistant_type == "openai-realtime":
+        response = database.create_openai_assistant(user_id, prompt, voice, assistant_name)
 
     return response
 
@@ -468,12 +472,14 @@ def get_assistants(
 @app.get("/api/assistant")
 def get_assistant(
     assistant_id: int,
+    assistant_type: str,
     jwt_token: str,
     session: Session=Depends(get_db),
 ):
     # for validation only
     get_current_user(jwt_token, session)
-    return database.get_assistant(assistant_id)
+    if assistant_type == "openai-realtime":
+        return database.get_openai_assistant(assistant_id)
 
 class Knowledge(BaseModel):
     knowledge_id: int
@@ -482,6 +488,11 @@ class Knowledge(BaseModel):
 
 class UpdateAssistant(BaseModel):
     assistant_id: int
+    assistant_type: str = "openai-realtime"
+    llm_provider: str = "openai"
+    voice_provider: str = "openai"
+    transcriber_provider: str = None
+    transcriber: str = None
     prompt: str
     voice: str
     assistant_name: str
@@ -500,23 +511,27 @@ def update_assistant(
     prompt = assistant_data.prompt
     voice = assistant_data.voice
     uploaded_files = assistant_data.uploaded_files
-    return database.update_assistant(
-        user_id=user_id,
-        assistant_id=assistant_id,
-        assistant_name=assistant_name,
-        prompt=prompt,
-        voice=voice,
-        uploaded_files=uploaded_files,
-    )
+
+    if assistant_data.assistant_type == "openai-realtime":
+        return database.update_openai_assistant(
+            user_id=user_id,
+            assistant_id=assistant_id,
+            assistant_name=assistant_name,
+            prompt=prompt,
+            voice=voice,
+            uploaded_files=uploaded_files,
+        )
 
 @app.delete("/api/assistant")
 def delete_assistant(
     assistant_id: int,
+    assistant_type: str,
     jwt_token: str,
     session: Session=Depends(get_db),
 ):
     get_current_user(jwt_token, session)
-    return database.delete_assistant(assistant_id)
+    if assistant_type == "openai-realtime":
+        return database.delete_openai_assistant(assistant_id)
 
 class CampaignData(BaseModel):
     assistant_id: int = Form(...)

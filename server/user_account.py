@@ -3,12 +3,12 @@ import jwt
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy import (
-    LargeBinary, 
-    Column, 
-    String, 
+    LargeBinary,
+    Column,
+    String,
     Integer,
-    Boolean, 
-    UniqueConstraint, 
+    Boolean,
+    UniqueConstraint,
     PrimaryKeyConstraint
 )
 

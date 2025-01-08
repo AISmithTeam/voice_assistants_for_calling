@@ -52,7 +52,7 @@ class Database:
             connection.close()
             return user
 
-    def create_assistant(
+    def create_openai_assistant(
         self,
         user_id: int,
         prompt: str,
@@ -61,7 +61,7 @@ class Database:
     ):
          with mysql.connector.connect(**self.connection_parameters) as connection:
             cursor = connection.cursor(buffered=True)
-            add_assistant = ("INSERT INTO assistants"
+            add_assistant = ("INSERT INTO openai_agents"
                             "(user_id, prompt, voice, created_at, updated_at, assistant_name)"
                             "VALUES (%(user_id)s, %(prompt)s, %(voice)s, %(created_at)s, %(updated_at)s, %(assistant_name)s)")
             
@@ -90,11 +90,13 @@ class Database:
     def get_user_assistants(self, user_id):
          with mysql.connector.connect(**self.connection_parameters) as connection:
             cursor = connection.cursor(buffered=True)
-            get_assistants = ("SELECT * FROM assistants WHERE user_id=%s")
+            get_assistants = ("SELECT * FROM openai_agents WHERE user_id=%s")
             cursor.execute(get_assistants, (user_id,))
             assistants = [
                 {
                     "id": assistant[0],
+                    "llm_provider": "openai",
+                    "voice_provider": "openai",
                     "prompt": assistant[1],
                     "voice": assistant[2],
                     "assistant_name": assistant[6],
@@ -105,10 +107,10 @@ class Database:
             connection.close()
             return assistants
     
-    def get_assistant(self, assistant_id):
+    def get_openai_assistant(self, assistant_id):
         with mysql.connector.connect(**self.connection_parameters) as connection:
             cursor = connection.cursor(buffered=True)
-            get_assistants = ("SELECT * FROM assistants WHERE assistant_id=%s")
+            get_assistants = ("SELECT * FROM openai_agents WHERE assistant_id=%s")
             cursor.execute(get_assistants, (assistant_id,))
             assistant = [
                 {
@@ -123,11 +125,11 @@ class Database:
             connection.close()
             return assistant
          
-    def delete_assistant(
+    def delete_openai_assistant(
         self,
         assistant_id: int,
     ):
-        remove_assistant = f"DELETE FROM assistants WHERE assistant_id={assistant_id}"
+        remove_assistant = f"DELETE FROM openai_agents WHERE assistant_id={assistant_id}"
         with mysql.connector.connect(**self.connection_parameters) as connection:
             cursor = connection.cursor(buffered=True)
             cursor.execute(remove_assistant)
@@ -136,7 +138,7 @@ class Database:
 
         return {"deleted.assistant_id": assistant_id}
     
-    def update_assistant(
+    def update_openai_assistant(
         self,
         user_id: int,
         assistant_id: int,
@@ -145,7 +147,7 @@ class Database:
         voice: str,
         uploaded_files: list[object],
     ):
-        update_assistant_query = ("UPDATE assistants "
+        update_assistant_query = ("UPDATE openai_agents "
                                   "SET prompt=%(prompt)s, voice=%(voice)s, assistant_name=%(assistant_name)s, updated_at=%(updated_at)s "
                                   "WHERE assistant_id=%(assistant_id)s")
         assistant_data = {
