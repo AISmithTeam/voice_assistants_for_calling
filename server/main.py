@@ -118,7 +118,8 @@ def get_current_user(
     try:
         payload = jwt.decode(jwt_token, settings.SECRET_KEY, algorithms=["HS256"])
         email: str = payload.get("email")
-        debug_sequence_numbers = []        if not email:
+        debug_sequence_numbers = []        
+        if not email:
             raise credentials_exception
         token_data = TokenData(email=email)
     except InvalidTokenError:
