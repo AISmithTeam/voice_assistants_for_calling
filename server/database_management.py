@@ -86,6 +86,38 @@ class Database:
                 "created_at": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 "updated_at": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             }
+         
+    def create_elevenlabs_assistant(
+        self,
+        user_id: int,
+        assistant_name: str,
+        elevenlabs_agent_id: str,
+    ):
+        with mysql.connector.connect(**self.connection_parameters) as connection:
+            cursor = connection.cursor(buffered=True)
+            add_assistant = ("INSERT INTO elevenlabs_agents"
+                            "(user_id, created_at, updated_at, assistant_name, elevenlabs_agent_id)"
+                            "VALUES (%(user_id)s, %(created_at)s, %(updated_at)s, %(assistant_name)s, %(elevenlabs_agent_id)s)")
+            
+            assistant_data = {
+                "user_id": user_id,
+                "assistant_name": assistant_name,
+                "elevenlabs_agent_id": elevenlabs_agent_id,
+                "created_at": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                "updated_at": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            }
+
+            cursor.execute(add_assistant, assistant_data)
+            connection.commit()
+            connection.close()
+
+            return {
+                "assistant_id": cursor.lastrowid,
+                "assistant_name": assistant_name,
+                "elevenlabs_agent_id": elevenlabs_agent_id,
+                "created_at": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                "updated_at": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            }
 
     def get_user_assistants(self, user_id):
          with mysql.connector.connect(**self.connection_parameters) as connection:

@@ -469,6 +469,9 @@ class AssistantData(BaseModel):
     voice_provider: str = "openai"
     transcriber_provider: str = None
     transcriber: str = None
+    llm: str = None
+    language: str = None
+    tts_model: str = None
     prompt: str
     voice: str
     assistant_name: str
@@ -488,6 +491,39 @@ def create_assistant(
 
     if assistant_data.assistant_type == "openai-realtime":
         response = database.create_openai_assistant(user_id, prompt, voice, assistant_name)
+    if assistant_data.assistant_type == "eleven":
+        agent_data = {
+            "conversation_config": {
+                "agent": {
+                    "prompt": {
+                        "prompt": prompt,
+                        "llm": assistant_data.llm,
+                        "temperature": 1,
+                        "max_tokens": 250,
+                        # TODO "tools": "",
+                        # TODO "knowledge_base": [],
+                        # TODO "custom_llm": "",
+                    },
+                    "first_message": "",
+                    "language": assistant_data.language,
+                },
+                "tts": {
+                    "model_id": assistant_data.tts_model,
+                    "agent_output_audio_format": "ulaw_8000",
+                    "voice_id": voice, 
+                },
+            }
+        }
+        response = requests.post(
+            "https://api.elevenlabs.io/v1/convai/agents/create",
+            headers = {
+                "xi-api-key": os.getenv("ELEVENLABS_API_KEY"),
+                "Content-Type": "application/json",
+            },
+            json=agent_data,
+        )
+        elevenlabs_agent_id = response.json()["agent_id"] # see elevenlabs api docs
+        response = database.create_elevenlabs_assistant(user_id, assistant_name, elevenlabs_agent_id)
 
     return response
 
@@ -552,6 +588,11 @@ def update_assistant(
             voice=voice,
             uploaded_files=uploaded_files,
         )
+    if assistant_data.assistant_type == "eleven":
+        # agent_data = elevenlabs api call payload
+        # response = api call to elevenlabs
+        # elevenlabs_agent_id = response["id"] # see elevenlabs api docs
+        database.update_elevenlabs_assistant(user_id, assistant_name, elevenlabs_agent_id)
 
 @app.delete("/api/assistant")
 def delete_assistant(

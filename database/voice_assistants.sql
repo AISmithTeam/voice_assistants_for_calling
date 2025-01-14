@@ -2,6 +2,8 @@ CREATE DATABASE VoiceAssistant;
 
 USE VoiceAssistant;
 
+# FIX only assistants and users created not really essential cause script executing only to init database
+
 CREATE TABLE users (
 	user_id INT AUTO_INCREMENT PRIMARY KEY,
     email TEXT(256),
