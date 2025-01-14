@@ -488,7 +488,7 @@ def create_assistant(
     prompt = assistant_data.prompt
     voice = assistant_data.voice
     assistant_name = assistant_data.assistant_name
-
+    response = {}
     if assistant_data.assistant_type == "openai-realtime":
         response = database.create_openai_assistant(user_id, prompt, voice, assistant_name)
     if assistant_data.assistant_type == "eleven":
