@@ -166,6 +166,7 @@ class Database:
                         'xi-api-key': os.getenv("ELEVENLABS_API_KEY")
                     }
                 ).json()
+                print(assistant[4], agent_info["conversation_config"]["agent"])
                 elevenlabs_assistant["llm_provider"] = "openai"
                 elevenlabs_assistant["voice_provider"] = "elevenlabs"
                 elevenlabs_assistant["transcriber_provider"] = "elevenlabs"
