@@ -158,7 +158,7 @@ class Database:
                     }
                 )
 
-                agent_info = requests.get(f'https://api.elevenlabs.io/v1/convai/agents/{assistant["elevenlabs_agent_id"]}').json()
+                agent_info = requests.get(f'https://api.elevenlabs.io/v1/convai/agents/{assistant[4]}').json()
                 assistant["llm_provider"] = "openai"
                 assistant["voice_provider"] = "elevenlabs"
                 assistant["transcriber_provider"] = "elevenlabs"
