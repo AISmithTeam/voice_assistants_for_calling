@@ -1,6 +1,10 @@
+from dotenv import load_dotenv
 import mysql.connector
 import datetime
 import requests
+import os
+
+load_dotenv(override=True)
 
 class Database:
     def __init__(self, host, user, password, database) -> None:
@@ -156,7 +160,12 @@ class Database:
                         "assistant_type": "elevenlabs",
                     }
 
-                agent_info = requests.get(f'https://api.elevenlabs.io/v1/convai/agents/{assistant[4]}').json()
+                agent_info = requests.get(
+                    f'https://api.elevenlabs.io/v1/convai/agents/{assistant[4]}',
+                    headers={
+                        'xi-api-key': os.getenv("ELEVENLABS_API_KEY")
+                    }
+                ).json()
                 print(assistant[4], agent_info)
                 elevenlabs_assistant["llm_provider"] = "openai"
                 elevenlabs_assistant["voice_provider"] = "elevenlabs"
