@@ -148,28 +148,26 @@ class Database:
             cursor.execute(get_elevenlabs_assistants, (user_id,))
             elevenlabs_assistants = []
             for assistant in cursor.fetchall():
-                elevenlabs_assistants.append(
-                    {
+                elevenlabs_assistant = {
                         "id": assistant[0],
                         "created_at": assistant[1],
                         "updated_at": assistant[2],
                         "assistant_name": assistant[3],
                         "assistant_type": "elevenlabs",
                     }
-                )
 
                 agent_info = requests.get(f'https://api.elevenlabs.io/v1/convai/agents/{assistant[4]}').json()
-                assistant["llm_provider"] = "openai"
-                assistant["voice_provider"] = "elevenlabs"
-                assistant["transcriber_provider"] = "elevenlabs"
-                assistant["llm"] = agent_info["conversation_config"]["prompt"]["llm"]
-                assistant["tts_model"] = agent_info["conversation_config"]["tts"]["model_id"]
-                assistant["stt_model"] = "elevenlabs-asr"
-                assistant["prompt"] = agent_info["conversation_config"]["prompt"]["prompt"]
-                assistant["voice"] = agent_info["conversation_config"]["tts"]["voice_id"] # convert id to name
+                elevenlabs_assistant["llm_provider"] = "openai"
+                elevenlabs_assistant["voice_provider"] = "elevenlabs"
+                elevenlabs_assistant["transcriber_provider"] = "elevenlabs"
+                elevenlabs_assistant["llm"] = agent_info["conversation_config"]["prompt"]["llm"]
+                elevenlabs_assistant["tts_model"] = agent_info["conversation_config"]["tts"]["model_id"]
+                elevenlabs_assistant["stt_model"] = "elevenlabs-asr"
+                elevenlabs_assistant["prompt"] = agent_info["conversation_config"]["prompt"]["prompt"]
+                elevenlabs_assistant["voice"] = agent_info["conversation_config"]["tts"]["voice_id"] # convert id to name
+                elevenlabs_assistants.append(elevenlabs_assistant)
 
             assistants.extend(elevenlabs_assistants)
-
             connection.close()
 
             return assistants
