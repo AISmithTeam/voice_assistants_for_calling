@@ -166,7 +166,6 @@ class Database:
                         'xi-api-key': os.getenv("ELEVENLABS_API_KEY")
                     }
                 ).json()
-                print(assistant[4], agent_info["conversation_config"]["agent"], agent_info["conversation_config"]["tts"])
                 elevenlabs_assistant["llm_provider"] = "openai"
                 elevenlabs_assistant["voice_provider"] = "elevenlabs"
                 elevenlabs_assistant["transcriber_provider"] = "elevenlabs"
@@ -195,6 +194,24 @@ class Database:
                     "assistant_name": assistant[6],
                     "created_at": assistant[4],
                     "updated_at": assistant[5],
+                } for assistant in cursor.fetchall()
+            ][0]
+            connection.close()
+            return assistant
+    
+    def get_elevenlabs_assistant(self, assistant_id):
+        with mysql.connector.connect(**self.connection_parameters) as connection:
+            cursor = connection.cursor(buffered=True)
+            get_assistants = ("SELECT * FROM elevenlabs_agents WHERE assistant_id=%s")
+            cursor.execute(get_assistants, (assistant_id,))
+            assistant = [
+                {
+                    "id": assistant[0],
+                    "created_at": assistant[1],
+                    "updated_at": assistant[2],
+                    "assistant_name": assistant[3],
+                    "assistant_type": "elevenlabs",
+                    "elevenlabs_agent_id": assistant[4],
                 } for assistant in cursor.fetchall()
             ][0]
             connection.close()

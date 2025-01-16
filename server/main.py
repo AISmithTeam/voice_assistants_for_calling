@@ -632,6 +632,7 @@ def create_campaign(
     uploaded_file: Annotated[bytes, File()],
     file_name: str = Form(...),
     assistant_id: int = Form(...),
+    assistant_type: str = Form(...),
     phone_number_id: int = Form(...),
     campaign_type: str = Form(...),
     start_time: str = Form(...),
@@ -665,7 +666,44 @@ def create_campaign(
 
     if campaign_type == "inbound":
         client = Client(account_sid, auth_token)
-        incoming_phone_number = client.incoming_phone_numbers('PN4242228effc5204a3e7303879548cb9b').update(voice_url=f"https://{HOST}/api/incoming-call?campaign_id={campaign_id}")
+        if assistant_type == "openai-realtime":
+            incoming_phone_number = client.incoming_phone_numbers('PN4242228effc5204a3e7303879548cb9b').update(voice_url=f"https://{HOST}/api/incoming-call?campaign_id={campaign_id}")
+        if assistant_type == "elevenlabs":
+            agent_id = database.get_elevenlabs_assistant(assistant_id)["elevenlabs_agent_id"]
+            # api call to create elevenlabs phone number
+            elevenlabs_numbers = {
+                elevenlabs_number["phone_number"]: elevenlabs_number
+                for elevenlabs_number in requests.get('https://api.elevenlabs.io/v1/convai/phone-numbers/',
+                    headers={
+                        'xi-api-key': os.getenv('ELEVENLABS_API_KEY'),
+                    }     
+                ).json()
+            }
+
+        if phone_number_data["phone_number"] in elevenlabs_numbers:
+            elevenlabs_number_id = elevenlabs_numbers[phone_number_data["phone_number"]]["phone_number_id"]
+            requests.patch(
+                f'https://api.elevenlabs.io/v1/convai/phone-numbers/{elevenlabs_number_id}',
+                headers={'xi-api-key': os.getenv('ELEVENLABS_API_KEY')},
+                json={"agent_id": agent_id},
+            )
+        else:
+            new_number_id = requests.post(
+                'https://api.elevenlabs.io/v1/convai/phone-numbers/create',
+                headers={'xi-api-key': os.getenv('ELEVENLABS_API_KEY')},
+                json={
+                    "phone_number": phone_number_data["phone_number"],
+                    "provider": "twilio",
+                    "label": phone_number_id,
+                    "sid": phone_number_data["account_sid"],
+                    "token": phone_number_data["auth_token"],
+                }
+            ).json()["phone_number_id"]
+            requests.patch(
+                f'https://api.elevenlabs.io/v1/convai/phone-numbers/{new_number_id}',
+                headers={'xi-api-key': os.getenv('ELEVENLABS_API_KEY')},
+                json={"agent_id": agent_id},
+            )
 
     return campaign_data
 
