@@ -207,11 +207,11 @@ class Database:
             assistant = [
                 {
                     "id": assistant[0],
-                    "created_at": assistant[1],
-                    "updated_at": assistant[2],
-                    "assistant_name": assistant[3],
+                    "created_at": assistant[2],
+                    "updated_at": assistant[3],
+                    "assistant_name": assistant[4],
                     "assistant_type": "elevenlabs",
-                    "elevenlabs_agent_id": assistant[4],
+                    "elevenlabs_agent_id": assistant[5],
                 } for assistant in cursor.fetchall()
             ][0]
             connection.close()
