@@ -1,6 +1,7 @@
-- rename table assistants to openai_agents
-- create table elevenlabs_agents with fields agent_id (id of record in our app database) and elevenlabs_platform_agent_id (string id of agent in 11labs account)
-- create endpoint function to create elevenlabs agent and record elevenlabs_platform_agent_id in database
++ rename table assistants to openai_agents
++ create table elevenlabs_agents with fields agent_id (id of record in our app database) and elevenlabs_platform_agent_id (string id of agent in 11labs account)
++ create endpoint function to create elevenlabs agent and record elevenlabs_platform_agent_id in database
+- update get_user_assistants to get elvenlabs agents also
 - creata endpoint function to update elevenlabs agent
 - creata endpoint function to get elevenlabs agent
 - update frontend get, create and update agents functionality to include provider fields

@@ -1,6 +1,6 @@
 import mysql.connector
 import datetime
-
+import requests
 
 class Database:
     def __init__(self, host, user, password, database) -> None:
@@ -98,7 +98,7 @@ class Database:
             add_assistant = ("INSERT INTO elevenlabs_agents"
                             "(user_id, created_at, updated_at, assistant_name, elevenlabs_agent_id)"
                             "VALUES (%(user_id)s, %(created_at)s, %(updated_at)s, %(assistant_name)s, %(elevenlabs_agent_id)s)")
-            
+
             assistant_data = {
                 "user_id": user_id,
                 "assistant_name": assistant_name,
@@ -120,15 +120,21 @@ class Database:
             }
 
     def get_user_assistants(self, user_id):
-         with mysql.connector.connect(**self.connection_parameters) as connection:
+        assistants = []
+        with mysql.connector.connect(**self.connection_parameters) as connection:
             cursor = connection.cursor(buffered=True)
-            get_assistants = ("SELECT * FROM openai_agents WHERE user_id=%s")
-            cursor.execute(get_assistants, (user_id,))
-            assistants = [
+            get_openai_assistants = ("SELECT * FROM openai_agents WHERE user_id=%s")
+            cursor.execute(get_openai_assistants, (user_id,))
+            openai_assistants = [
                 {
                     "id": assistant[0],
                     "llm_provider": "openai",
                     "voice_provider": "openai",
+                    "assistant_type": "openai-realtime",
+                    "transcriber_provider": "openai",
+                    "llm": "gpt-4o-realtime",
+                    "tts_model": "gpt-4o-realtime",
+                    "stt_model": "gpt-4o-realtime",
                     "prompt": assistant[1],
                     "voice": assistant[2],
                     "assistant_name": assistant[6],
@@ -136,9 +142,38 @@ class Database:
                     "updated_at": assistant[5],
                 } for assistant in cursor.fetchall()
             ]
+            assistants.extend(openai_assistants)
+
+            get_elevenlabs_assistants = ("SELECT * FROM elevenlabs_agents WHERE user_id=%s")
+            cursor.execute(get_elevenlabs_assistants, (user_id,))
+            elevenlabs_assistants = []
+            for assistant in cursor.fetchall():
+                elevenlabs_assistants.append(
+                    {
+                        "id": assistant[0],
+                        "created_at": assistant[1],
+                        "updated_at": assistant[2],
+                        "assistant_name": assistant[3],
+                        "assistant_type": "elevenlabs",
+                    }
+                )
+
+                agent_info = requests.get(f'https://api.elevenlabs.io/v1/convai/agents/{assistant["elevenlabs_agent_id"]}').json()
+                assistant["llm_provider"] = "openai"
+                assistant["voice_provider"] = "elevenlabs"
+                assistant["transcriber_provider"] = "elevenlabs"
+                assistant["llm"] = agent_info["conversation_config"]["prompt"]["llm"]
+                assistant["tts_model"] = agent_info["conversation_config"]["tts"]["model_id"]
+                assistant["stt_model"] = "elevenlabs-asr"
+                assistant["prompt"] = agent_info["conversation_config"]["prompt"]["prompt"]
+                assistant["voice"] = agent_info["conversation_config"]["tts"]["voice_id"] # convert id to name
+
+            assistants.extend(elevenlabs_assistants)
+
             connection.close()
+
             return assistants
-    
+
     def get_openai_assistant(self, assistant_id):
         with mysql.connector.connect(**self.connection_parameters) as connection:
             cursor = connection.cursor(buffered=True)
