@@ -166,15 +166,14 @@ class Database:
                         'xi-api-key': os.getenv("ELEVENLABS_API_KEY")
                     }
                 ).json()
-                print(assistant[4], agent_info)
                 elevenlabs_assistant["llm_provider"] = "openai"
                 elevenlabs_assistant["voice_provider"] = "elevenlabs"
                 elevenlabs_assistant["transcriber_provider"] = "elevenlabs"
-                elevenlabs_assistant["llm"] = agent_info["conversation_config"]["prompt"]["llm"]
-                elevenlabs_assistant["tts_model"] = agent_info["conversation_config"]["tts"]["model_id"]
+                elevenlabs_assistant["llm"] = agent_info["conversation_config"]["agent"]["prompt"]["llm"]
+                elevenlabs_assistant["tts_model"] = agent_info["conversation_config"]["agent"]["tts"]["model_id"]
                 elevenlabs_assistant["stt_model"] = "elevenlabs-asr"
-                elevenlabs_assistant["prompt"] = agent_info["conversation_config"]["prompt"]["prompt"]
-                elevenlabs_assistant["voice"] = agent_info["conversation_config"]["tts"]["voice_id"] # convert id to name
+                elevenlabs_assistant["prompt"] = agent_info["conversation_config"]["agent"]["prompt"]["prompt"]
+                elevenlabs_assistant["voice"] = agent_info["conversation_config"]["agent"]["tts"]["voice_id"] # convert id to name
                 elevenlabs_assistants.append(elevenlabs_assistant)
 
             assistants.extend(elevenlabs_assistants)
