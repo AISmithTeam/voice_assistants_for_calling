@@ -522,7 +522,7 @@ def create_assistant(
             },
             json=agent_data,
         )
-        print(response)
+        print(response.json())
         elevenlabs_agent_id = response.json()["agent_id"] # see elevenlabs api docs
         response = database.create_elevenlabs_assistant(user_id, assistant_name, elevenlabs_agent_id)
 
