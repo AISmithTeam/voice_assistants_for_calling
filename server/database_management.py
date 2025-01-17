@@ -159,13 +159,14 @@ class Database:
                         "assistant_name": assistant[3],
                         "assistant_type": "elevenlabs",
                     }
-
                 agent_info = requests.get(
                     f'https://api.elevenlabs.io/v1/convai/agents/{assistant[4]}',
                     headers={
                         'xi-api-key': os.getenv("ELEVENLABS_API_KEY")
                     }
                 ).json()
+                print(assistant, agent_info)
+
                 elevenlabs_assistant["llm_provider"] = "openai"
                 elevenlabs_assistant["voice_provider"] = "elevenlabs"
                 elevenlabs_assistant["transcriber_provider"] = "elevenlabs"
