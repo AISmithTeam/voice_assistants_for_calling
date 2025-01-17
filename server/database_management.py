@@ -154,13 +154,13 @@ class Database:
             for assistant in cursor.fetchall():
                 elevenlabs_assistant = {
                         "id": assistant[0],
-                        "created_at": assistant[1],
-                        "updated_at": assistant[2],
-                        "assistant_name": assistant[3],
+                        "created_at": assistant[2],
+                        "updated_at": assistant[3],
+                        "assistant_name": assistant[4],
                         "assistant_type": "elevenlabs",
                     }
                 agent_info = requests.get(
-                    f'https://api.elevenlabs.io/v1/convai/agents/{assistant[4]}',
+                    f'https://api.elevenlabs.io/v1/convai/agents/{assistant[5]}',
                     headers={
                         'xi-api-key': os.getenv("ELEVENLABS_API_KEY")
                     }
