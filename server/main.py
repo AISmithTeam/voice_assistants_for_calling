@@ -486,7 +486,7 @@ def create_assistant(
 
     user_id = user.user_id
     prompt = assistant_data.prompt
-    voice = assistant_data.voice
+    voice = assistant_data.tts_model # FIXME change to voice
     assistant_name = assistant_data.assistant_name
     response = {}
     if assistant_data.assistant_type == "openai-realtime":
