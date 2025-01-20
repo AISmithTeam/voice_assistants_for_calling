@@ -491,7 +491,7 @@ def create_assistant(
     response = {}
     if assistant_data.assistant_type == "openai-realtime":
         response = database.create_openai_assistant(user_id, prompt, voice, assistant_name)
-    if assistant_data.assistant_type == "eleven":
+    if assistant_data.assistant_type == "elevenlabs":
         agent_data = {
             "conversation_config": {
                 "agent": {
@@ -668,6 +668,7 @@ def create_campaign(
     if campaign_type == "inbound":
         client = Client(account_sid, auth_token)
         if assistant_type == "openai-realtime":
+            # FIXME search for number sid of number with given digits
             incoming_phone_number = client.incoming_phone_numbers('PN4242228effc5204a3e7303879548cb9b').update(voice_url=f"https://{HOST}/api/incoming-call?campaign_id={campaign_id}")
         if assistant_type == "elevenlabs":
             agent_id = database.get_elevenlabs_assistant(assistant_id)["elevenlabs_agent_id"]
