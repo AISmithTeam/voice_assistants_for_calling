@@ -852,19 +852,19 @@ def create_campaign(
     user = get_current_user(jwt_token, session)
     user_id = user.user_id
     campaign_data = database.create_campaign(
-        user_id,
-        assistant_id,
-        phone_number_id,
-        campaign_type,
-        start_time,
-        end_time,
-        max_recalls,
-        recall_interval,
-        campaign_status,
-        uploaded_file,
-        file_name,
-        campaign_name,
-        assistant_type,
+        user_id=user_id,
+        assistant_id=assistant_id,
+        phone_number_id=phone_number_id,
+        campaign_type=campaign_type,
+        start_time=start_time,
+        end_time=end_time,
+        max_recalls=max_recalls,
+        recall_interval=recall_interval,
+        campaign_status=campaign_status,
+        uploaded_file=uploaded_file,
+        file_name=file_name,
+        campaign_name=campaign_name,
+        assistant_type=assistant_type,
     )
 
     campaign_id = campaign_data["id"]
