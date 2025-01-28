@@ -245,7 +245,7 @@ def receive_recording_from_twilio(twilio_completed_call_data):
     database.update_call_log(
         call_sid=twilio_completed_call_data["CallSid"],
         recording_url=twilio_completed_call_data["RecordingUrl"],
-        duration=twilio_completed_call_data["RecordingDuration"]
+        duration=twilio_completed_call_data["RecordingDuration"],
         cost=twilio_completed_call_data["RecordingDuration"] * PER_MINUTE_PRICING, # FIXME хранить в БД менять с помощью АПИ
     )
     pass
