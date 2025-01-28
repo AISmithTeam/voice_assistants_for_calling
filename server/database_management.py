@@ -698,15 +698,18 @@ class Database:
         self,
         user_id: int,
         call_sid: str,
+        call_type: str,
+        phone_number_id: int,
         assistant_type: str, # for billing calculation
         assistant_name: str,
         campaign_name: str,
         account_sid: str,
         auth_token: str,
+        customer_phone_number: str = None,
     ):
         create_call_log_query = ("INSERT INTO call_logs"
-                                 "(client_id, call_sid, assistant_type, assistant_name, campaign_name, accountSid, authToken)"
-                                 "VALUES (%(client_id)s, %(call_sid)s, %(assistant_type)s, %(assistant_name)s, %(campaign_name)s, %(accountSid)s, %(authToken)s)")
+                                 "(client_id, call_sid, call_type, phone_number_id, assistant_type, assistant_name, campaign_name, accountSid, authToken, customer_phone_number)"
+                                 "VALUES (%(client_id)s, %(call_sid)s, %(call_type)s, %(phone_number_id)s, %(assistant_type)s, %(assistant_name)s, %(campaign_name)s, %(accountSid)s, %(authToken)s, %(customer_phone_number)s)")
         with mysql.connector.connect(**self.connection_parameters) as connection:
             cursor= connection.cursor(buffered=True)
             cursor.execute(
@@ -714,14 +717,16 @@ class Database:
                 {
                     "client_id": user_id,
                     "call_sid": call_sid,
+                    "call_type": call_type,
+                    "phone_number_id": phone_number_id,
                     "assistant_type": assistant_type,
                     "assistant_name": assistant_name,
                     "campaign_name": campaign_name,
                     "account_sid": account_sid,
                     "auth_token": auth_token,
+                    "customer_phone_number": customer_phone_number,
                 }
             )
-
             connection.close()
 
     def update_call_log(
@@ -757,17 +762,21 @@ class Database:
 
             call_logs = [
                 {
-                    "user_id": log[0],
-                    "call_sid": log[1],
-                    "assistant_type": log[2],
-                    "assistant_name": log[3],
-                    "campaign_name": log[4],
-                    "account_sid": log[5],
-                    "auth_token": log[6],
-                    "recording_url": log[7],
-                    "duration": log[8],
-                    "cost": log[9],
-                    # TODO добавить summary, transcription и success_score, и elevenlabs_conversation_id чтобы их получать (его устанавливать в вебсокете см. документацию 11labs)
+                    "call_id": log[0],
+                    "user_id": log[1],
+                    "call_sid": log[2],
+                    "assistant_type": log[3],
+                    "assistant_name": log[4],
+                    "campaign_name": log[5],
+                    "account_sid": log[6],
+                    "auth_token": log[7],
+                    "recording_url": log[8],
+                    "duration": log[9],
+                    "cost": log[10],
+                    "phone_number_id": log[11],
+                    "call_type": log[12],
+                    "customer_phone_nummber": log[13],
+                    # TODO добавить call_type, customer_phone_number, start_time, summary, transcription и success_score, и elevenlabs_conversation_id чтобы их получать (его устанавливать в вебсокете см. документацию 11labs)
                 } for log in cursor.fetchall()
             ]
             connection.close()

@@ -191,9 +191,15 @@ class HandleCall(BaseModel):
     host: str
 
 @app.api_route("/api/incoming-call", methods=["GET", "POST"])
-async def handle_incoming_call(campaign_id: int, request: Request):
+async def handle_incoming_call(
+    campaign_id: int,
+    request: Request,
+    call_type: str = 'inbound',
+    customer_phone_number: str = None
+):
     """Handle incoming call and return TwiML response to connect to Media Stream."""
     response = VoiceResponse()
+    call_data = (await request.form()) .__dict__['_dict']
     host = request.url.hostname
     connect = Connect()
 
@@ -217,15 +223,17 @@ async def handle_incoming_call(campaign_id: int, request: Request):
     database.create_call_log(
         user_id=campaign_data["user_id"],
         call_sid=call_data['CallSid'],
+        call_type=call_type,
+        phone_number_id=campaign_data["phone_number_id"],
         assistant_type=assistant_data["assistant_type"],
         assistant_name=assistant_data["assistant_name"],
         campaign_name=campaign_data["campaign_name"],
         account_sid=phone_number_data["account_sid"],
         auth_token=phone_number_data["auth_token"],
+        customer_phone_number=customer_phone_number,
     )
 
     twilio_auth_token = phone_number_data["auth_token"]
-    call_data = (await request.form()) .__dict__['_dict']
     asyncio.create_task(help_create_recording(call_sid=call_data['CallSid'], account_sid=call_data['AccountSid'], auth_token=twilio_auth_token))
 
     return HTMLResponse(content=str(response), media_type="application/xml")
@@ -284,7 +292,7 @@ async def make_outgoing_call(
         call = twilio_client.calls.create(
             to=to_number,
             from_=from_number,
-            url=f"https://{HOST}/api/incoming-call?campaign_id={campaign_id}&phone_number={to_number}"
+            url=f"https://{HOST}/api/incoming-call?campaign_id={campaign_id}&customer_phone_number={to_number}&call_type=outbound"
         )
         f.write("oudbound call function returned\n")
 
@@ -1039,24 +1047,15 @@ def get_assisant_knowledge(
     return database.get_assistant_knowledge(assistant_id)
 
 @app.get("/api/twilio-records")
-def fetch_twilio_records(phone_number: str, account_sid: str, auth_token: str, inbound: bool, limit: int):
+def fetch_twilio_records(
+    jwt_token: str,
+    session: Session=Depends(get_db),
+):
     # TODO извлекать логи из бд и запись с твилио
-    print(account_sid, auth_token)
-    try:
-        client = Client(account_sid, auth_token)
-        extract_payload = {
-            "to" if inbound else "from_": phone_number,
-            "limit": limit,
-        }
-        recordings = []
-        for call in client.calls.list(**extract_payload):
-            call = call.__dict__
-            call.pop("_version")
-            recordings.append(call)
-        return recordings
-    except Exception as e:
-        return {"error": e}
+    user = get_current_user(jwt_token, session)
+    user_id = user.user_id
 
+    return database.get_call_logs(user_id)
 # TODO эндпоинт для получения эксель файла с логами
 
 if __name__ == "__main__":
