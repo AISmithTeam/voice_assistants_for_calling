@@ -763,19 +763,19 @@ class Database:
             call_logs = [
                 {
                     "call_id": log[0],
-                    "user_id": log[1],
-                    "call_sid": log[2],
-                    "assistant_type": log[3],
-                    "assistant_name": log[4],
-                    "campaign_name": log[5],
-                    "account_sid": log[6],
-                    "auth_token": log[7],
-                    "recording_url": log[8],
-                    "duration": log[9],
-                    "cost": log[10],
-                    "phone_number_id": log[11],
-                    "call_type": log[12],
-                    "customer_phone_nummber": log[13],
+                    "user_id": log[3],
+                    "call_type": log[4],
+                    "duration": log[7],
+                    "call_sid": log[13],
+                    "assistant_type": log[14],
+                    "assistant_name": log[15],
+                    "campaign_name": log[16],
+                    "account_sid": log[17],
+                    "auth_token": log[18],
+                    "cost": log[19],
+                    "recording_url": log[20],
+                    "phone_number_id": log[21],
+                    "customer_phone_number": log[22],
                     # TODO добавить call_type, customer_phone_number, start_time, summary, transcription и success_score, и elevenlabs_conversation_id чтобы их получать (его устанавливать в вебсокете см. документацию 11labs)
                 } for log in cursor.fetchall()
             ]
