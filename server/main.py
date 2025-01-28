@@ -751,6 +751,8 @@ def get_assistant(
     get_current_user(jwt_token, session)
     if assistant_type == "openai-realtime":
         return database.get_openai_assistant(assistant_id)
+    elif assistant_type == "elevenlabs":
+        return database.get_elevenlabs_assistant(assistant_id) 
 
 class Knowledge(BaseModel):
     knowledge_id: int
