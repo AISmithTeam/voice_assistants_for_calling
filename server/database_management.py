@@ -317,12 +317,14 @@ class Database:
         campaign_status: str,
         uploaded_file: bytes,
         file_name: str,
+        campaign_name: str,
+        assistant_type: str,
     ):
         with mysql.connector.connect(**self.connection_parameters) as connection:
             cursor = connection.cursor(buffered=True)
             add_campaign = ("INSERT INTO campaigns"
-                            "(user_id, assistant_id, phone_number_id, campaign_type, start_time, end_time, max_recalls, recall_interval, campaign_status, uploaded_file, file_name)"
-                            "VALUES (%(user_id)s, %(assistant_id)s, %(phone_number_id)s, %(campaign_type)s, %(start_time)s, %(end_time)s, %(max_recalls)s, %(recall_interval)s, %(campaign_status)s, %(uploaded_file)s, %(file_name)s)")
+                            "(user_id, assistant_id, phone_number_id, campaign_type, start_time, end_time, max_recalls, recall_interval, campaign_status, uploaded_file, file_name, campaign_name, assistant_type)"
+                            "VALUES (%(user_id)s, %(assistant_id)s, %(phone_number_id)s, %(campaign_type)s, %(start_time)s, %(end_time)s, %(max_recalls)s, %(recall_interval)s, %(campaign_status)s, %(uploaded_file)s, %(file_name)s, %(campaign_name)s, %(assistant_type)s)")
             campaign_data = {
                 "user_id": user_id,
                 "assistant_id": assistant_id,
@@ -335,6 +337,8 @@ class Database:
                 "campaign_status": campaign_status,
                 "uploaded_file": uploaded_file,
                 "file_name": file_name,
+                "campaign_name": campaign_name,
+                "assistant_type": assistant_type,
                 "created_at": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 "updated_at": datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             }
@@ -365,9 +369,11 @@ class Database:
             cursor = connection.cursor(buffered=True)
             get_campaigns = ("SELECT * FROM campaigns WHERE user_id=%s")
             cursor.execute(get_campaigns, (user_id,))
+            # TODO return user_id, campaign_name and assistant_type
             campaigns = [
                 {
                     "id": campaign[0],
+                    "user_id": campaign[1],
                     "assistant_id": campaign[2],
                     "phone_number_id": campaign[3],
                     "type": campaign[4],
@@ -381,6 +387,8 @@ class Database:
                     "file_name": campaign[13],
                     "created_at": campaign[11],
                     "updated_at": campaign[12],
+                    "campaign_name": campaign[13],
+                    "assistant_type": campaign[14],
                 } for campaign in cursor.fetchall()
             ]
             connection.close()
@@ -391,9 +399,11 @@ class Database:
             cursor = connection.cursor(buffered=True)
             get_campaigns = ("SELECT * FROM campaigns WHERE campaign_id=%s")
             cursor.execute(get_campaigns, (campaign_id,))
+            # TODO add assistant_type, user_id and campaign_name
             campaign = [
                 {
                     "id": campaign[0],
+                    "user_id": campaign[1],
                     "assistant_id": campaign[2],
                     "phone_number_id": campaign[3],
                     "type": campaign[4],
@@ -406,6 +416,8 @@ class Database:
                     "file_name": campaign[13],
                     "created_at": campaign[11],
                     "updated_at": campaign[12],
+                    "campaign_name": campaign[13],
+                    "assistant_type": campaign[14],
                 } for campaign in cursor.fetchall()
             ][0]
             return campaign
@@ -424,9 +436,11 @@ class Database:
         campaign_status: str,
         uploaded_file: bytes,
         file_name: str,
+        campaign_name: str,
+        assistant_type: str,
     ):
         update_campaign_query = ("UPDATE campaigns "
-                                 "SET assistant_id=%(assistant_id)s, phone_number_id=%(phone_number_id)s, campaign_type=%(campaign_type)s, start_time=%(start_time)s, end_time=%(end_time)s, max_recalls=%(max_recalls)s, recall_interval=%(recall_interval)s, campaign_status=%(campaign_status)s, uploaded_file=%(uploaded_file)s, file_name=%(file_name)s "
+                                 "SET assistant_id=%(assistant_id)s, phone_number_id=%(phone_number_id)s, campaign_type=%(campaign_type)s, start_time=%(start_time)s, end_time=%(end_time)s, max_recalls=%(max_recalls)s, recall_interval=%(recall_interval)s, campaign_status=%(campaign_status)s, uploaded_file=%(uploaded_file)s, file_name=%(file_name)s, campaign_name=%(campaign_name)s, assistant_type=%(assistant_type)s "
                                  "WHERE campaign_id=%(campaign_id)s")
         campaign_data = {
             "campaign_id": campaign_id,
@@ -441,6 +455,8 @@ class Database:
             "campaign_status": campaign_status,
             "uploaded_file": uploaded_file,
             "file_name": file_name,
+            "campaign_name": campaign_name,
+            "assistant_type": assistant_type,
         }
 
         with mysql.connector.connect(**self.connection_parameters) as connection:
@@ -676,3 +692,84 @@ class Database:
             connection.close()
 
             return knowledgebase
+        
+
+    def create_call_log(
+        self,
+        user_id: int,
+        call_sid: str,
+        assistant_type: str, # for billing calculation
+        assistant_name: str,
+        campaign_name: str,
+        account_sid: str,
+        auth_token: str,
+    ):
+        create_call_log_query = ("INSERT INTO call_logs"
+                                 "(client_id, call_sid, assistant_type, assistant_name, campaign_name, accountSid, authToken)"
+                                 "VALUES (%(client_id)s, %(call_sid)s, %(assistant_type)s, %(assistant_name)s, %(campaign_name)s, %(accountSid)s, %(authToken)s)")
+        with mysql.connector.connect(**self.connection_parameters) as connection:
+            cursor= connection.cursor(buffered=True)
+            cursor.execute(
+                create_call_log_query,
+                {
+                    "client_id": user_id,
+                    "call_sid": call_sid,
+                    "assistant_type": assistant_type,
+                    "assistant_name": assistant_name,
+                    "campaign_name": campaign_name,
+                    "account_sid": account_sid,
+                    "auth_token": auth_token,
+                }
+            )
+
+            connection.close()
+
+    def update_call_log(
+        self, 
+        call_sid: str,
+        recording_url: str,
+        duration: str,
+        cost: str,
+):
+        update_call_log_query = ("UPDATE call_logs "
+                                 "SET recording_url=%(recording_url)s, duration=%(duration)s, cost=%(cost)s "
+                                 "WHERE call_sid=%(call_sid)s")
+        
+        with mysql.connector.connect(**self.connection_parameters) as connection:
+            cursor = connection.cursor(buffered=True)
+            cursor.execute(
+                update_call_log_query,
+                {
+                    "recording_url": recording_url,
+                    "duration": duration,
+                    "cost": cost,
+                    "call_sid": call_sid,
+                }
+            )
+
+            connection.close()
+
+    def get_call_logs(self, user_id: int):
+        get_call_log_query = (f"SELECT * FROM call_logs WHERE user_id={user_id}")
+        with mysql.connector.connect(**self.connection_parameters) as connection:
+            cursor = connection.cursor(buffered=True)
+            cursor.execute(get_call_log_query)
+
+            call_logs = [
+                {
+                    "user_id": log[0],
+                    "call_sid": log[1],
+                    "assistant_type": log[2],
+                    "assistant_name": log[3],
+                    "campaign_name": log[4],
+                    "account_sid": log[5],
+                    "auth_token": log[6],
+                    "recording_url": log[7],
+                    "duration": log[8],
+                    "cost": log[9],
+                    # TODO добавить summary, transcription и success_score, и elevenlabs_conversation_id чтобы их получать (его устанавливать в вебсокете см. документацию 11labs)
+                } for log in cursor.fetchall()
+            ]
+            connection.close()
+        
+        return call_logs

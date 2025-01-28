@@ -55,6 +55,7 @@ LOG_EVENT_TYPES = [
 ]
 SHOW_TIMING_MATH = False
 HOST = "api.voice.aismith.co"
+PER_MINUTE_PRICING = os.getenv('PER_MINUTE_PRICING')
 
 app = FastAPI(openapi_url="/api/openapi.json", docs_url="/api/docs")
 
@@ -193,23 +194,56 @@ class HandleCall(BaseModel):
 async def handle_incoming_call(campaign_id: int, request: Request):
     """Handle incoming call and return TwiML response to connect to Media Stream."""
     response = VoiceResponse()
-    # <Say> punctuation to improve text-to-speech flow
     host = request.url.hostname
     connect = Connect()
-    stream = connect.stream(url=f'wss://{HOST}/stream/media-stream')
 
+    campaign_data = database.get_campaign(campaign_id=campaign_id)
+
+    if campaign_data["assistant_type"] == "openai-realtime":
+        assistant_data = database.get_openai_assistant(campaign_data["assistant_id"])
+    elif campaign_data["assistant_type"] == "elevenlabs":
+        assistant_data = database.get_elevenlabs_assistant(campaign_data["assistant_id"])
+
+    if campaign_data["assistant_type"] == "openai-realtime":
+        stream_type = "media-stream-openai-realtime"
+    elif campaign_data["assistant_type"] == "elevenlabs":
+        stream_type = f"media-stream-elevenlabs/{assistant_data["elevenlabs_agent_id"]}"
+
+    stream = connect.stream(url=f'wss://{HOST}/stream/{stream_type}')
     stream.parameter(name='campaign_id', value=campaign_id)
     response.append(connect)
+    
+    phone_number_data = database.get_phone_number(phone_number_id=campaign_data["phone_number_id"])
+    database.create_call_log(
+        user_id=campaign_data["user_id"],
+        call_sid=call_data['CallSid'],
+        assistant_type=assistant_data["assistant_type"],
+        assistant_name=assistant_data["assistant_name"],
+        campaign_name=campaign_data["campaign_name"],
+        account_sid=phone_number_data["account_sid"],
+        auth_token=phone_number_data["auth_token"],
+    )
 
-    twilio_auth_token = '29671eed2df6212199c0b996c567b783'
-
+    twilio_auth_token = phone_number_data["auth_token"]
     call_data = (await request.form()) .__dict__['_dict']
     asyncio.create_task(help_create_recording(call_sid=call_data['CallSid'], account_sid=call_data['AccountSid'], auth_token=twilio_auth_token))
 
     return HTMLResponse(content=str(response), media_type="application/xml")
 
+# callback to receive twilio recording on call completion
+@app.post('/api/receive-recording-from-twilio')
+def receive_recording_from_twilio(twilio_completed_call_data):
+    # по call_sid обновлять звонок, добавляя recording_url, cost и duration
+    database.update_call_log(
+        call_sid=twilio_completed_call_data["CallSid"],
+        recording_url=twilio_completed_call_data["RecordingUrl"],
+        duration=twilio_completed_call_data["RecordingDuration"]
+        cost=twilio_completed_call_data["RecordingDuration"] * PER_MINUTE_PRICING, # FIXME хранить в БД менять с помощью АПИ
+    )
+    pass
 
-# helper function to delay recording creation to the moment whem call is in progress
+
+# helper function to delay recording creation to the moment when call is in progress
 async def help_create_recording(
     call_sid: str,
     account_sid: str,
@@ -219,7 +253,16 @@ async def help_create_recording(
     while call_status['status'] != 'in-progress':
         call_status = requests.get(f'https://{account_sid}:{auth_token}@api.twilio.com/2010-04-01/Accounts/{account_sid}/Calls/{call_sid}.json').json()
         await asyncio.sleep(0.01)
-    create_recording_response = requests.post(f'https://{account_sid}:{auth_token}@api.twilio.com/2010-04-01/Accounts/{account_sid}/Calls/{call_sid}/Recordings.json')
+    # TESTME ghjntcnbnm как отправляет данные
+    create_recording_response = requests.post(
+        f'https://{account_sid}:{auth_token}@api.twilio.com/2010-04-01/Accounts/{account_sid}/Calls/{call_sid}/Recordings.json',
+        json={
+            "RecordingStatusCallbackEvent": [
+                "completed",
+            ],
+            "RecordingStatusCallback": f"https://{HOST}/api/receive-recording-from-twilio",
+        }
+    )
     return create_recording_response
 
 
@@ -248,7 +291,7 @@ async def make_outgoing_call(
 
         return {"response": "call created_successfully"}
 
-@app.websocket("/stream/media-stream")
+@app.websocket("/stream/media-stream-openai-realtime")
 async def handle_media_stream(websocket: WebSocket):
     """Handle WebSocket connections between Twilio and OpenAI."""
     print("Client connected")
@@ -463,6 +506,158 @@ async def initialize_session(openai_ws, assistant_id):
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@app.websocket("/stream/media-stream-elevenlabs/{agent_id}")
+async def handle_media_stream_eleven(websocket: WebSocket, agent_id: str):
+    """Handle WebSocket connections between Twilio and OpenAI."""
+    await websocket.accept()
+    print('PARAMETER: ', agent_id)
+
+    async with websockets.connect(f'wss://api.elevenlabs.io/v1/convai/conversation?agent_id={agent_id}') as openai_ws:
+        # Connection specific state
+        stream_sid = None
+        latest_media_timestamp = 0
+        last_assistant_item = None
+        mark_queue = []
+        response_start_timestamp_twilio = None
+        recording_encoding = bytearray()
+
+        async def receive_from_twilio():
+            """Receive audio data from Twilio and send it to the OpenAI Realtime API."""
+            nonlocal stream_sid, latest_media_timestamp, recording_encoding
+            try:
+                async for message in websocket.iter_text():
+                    data = json.loads(message)
+                    if data['event'] == 'media' and openai_ws.open:
+                        latest_media_timestamp = int(data['media']['timestamp'])
+                        audio_append = {
+                            "user_audio_chunk": data['media']['payload']
+                        }
+                        print("CLIENT: ", audio_append)
+                        await openai_ws.send(json.dumps(audio_append))
+                    elif data['event'] == 'start':
+                        stream_sid = data['start']['streamSid']
+                        print(f"Incoming stream has started {stream_sid}")
+                        latest_media_timestamp = 0
+                    elif data['event'] == 'mark':
+                        if mark_queue:
+                            mark_queue.pop(0)
+                # to catch disconnection
+                await websocket.receive()
+            except (WebSocketDisconnect, ConnectionClosed, RuntimeError):
+                print("DISCONNECTED")
+                if openai_ws.open:
+                    await openai_ws.close()
+
+        async def send_to_twilio():
+            """Receive events from the OpenAI Realtime API, send audio back to Twilio."""
+            nonlocal stream_sid, last_assistant_item, response_start_timestamp_twilio, recording_encoding
+            try:
+                async for openai_message in openai_ws:
+                    response = json.loads(openai_message)
+                    print(response)
+                    if response.get('type') == 'audio':
+                        audio_delta = {
+                            "event": "media",
+                            "streamSid": stream_sid,
+                            "media": {
+                                "payload": response['audio_event']['audio_base_64']
+                            }
+                        }
+                        await websocket.send_json(audio_delta)
+
+                        if response_start_timestamp_twilio is None:
+                            response_start_timestamp_twilio = latest_media_timestamp
+                            if SHOW_TIMING_MATH:
+                                print(f"Setting start timestamp for new response: {response_start_timestamp_twilio}ms")
+
+                        # Update last_assistant_item safely
+                        if response.get('item_id'):
+                            last_assistant_item = response['item_id']
+
+                        await send_mark(websocket, stream_sid)
+
+                    # Trigger an interruption. Your use case might work better using `input_audio_buffer.speech_stopped`, or combining the two.
+                    if response.get('type') == 'input_audio_buffer.speech_started':
+                        print("Speech started detected.")
+                        if last_assistant_item:
+                            print(f"Interrupting response with id: {last_assistant_item}")
+                            await handle_speech_started_event()
+
+            except Exception as e:
+                print(f"Error in send_to_twilio: {e}")
+
+        async def handle_speech_started_event():
+            """Handle interruption when the caller's speech starts."""
+            nonlocal response_start_timestamp_twilio, last_assistant_item
+            print("Handling speech started event.")
+            if mark_queue and response_start_timestamp_twilio is not None:
+                elapsed_time = latest_media_timestamp - response_start_timestamp_twilio
+                if SHOW_TIMING_MATH:
+                    print(f"Calculating elapsed time for truncation: {latest_media_timestamp} - {response_start_timestamp_twilio} = {elapsed_time}ms")
+
+                if last_assistant_item:
+                    if SHOW_TIMING_MATH:
+                        print(f"Truncating item with ID: {last_assistant_item}, Truncated at: {elapsed_time}ms")
+
+                    truncate_event = {
+                        "type": "conversation.item.truncate",
+                        "item_id": last_assistant_item,
+                        "content_index": 0,
+                        "audio_end_ms": elapsed_time
+                    }
+                    await openai_ws.send(json.dumps(truncate_event))
+
+                await websocket.send_json({
+                    "event": "clear",
+                    "streamSid": stream_sid
+                })
+
+                mark_queue.clear()
+                last_assistant_item = None
+                response_start_timestamp_twilio = None
+
+        async def send_mark(connection, stream_sid):
+            if stream_sid:
+                mark_event = {
+                    "event": "mark",
+                    "streamSid": stream_sid,
+                    "mark": {"name": "responsePart"}
+                }
+                await connection.send_json(mark_event)
+                mark_queue.append('responsePart')
+
+        await asyncio.gather(receive_from_twilio(), send_to_twilio())
+
+
+
+
+
+
+
+
+
+
+
+
 class AssistantData(BaseModel):
     assistant_type: str = "openai-realtime"
     llm_provider: str = "openai"
@@ -472,6 +667,7 @@ class AssistantData(BaseModel):
     llm: str = None
     language: str = None
     tts_model: str = None
+    first_message: str = ""
     prompt: str
     voice: str
     assistant_name: str
@@ -504,7 +700,7 @@ def create_assistant(
                         # TODO "knowledge_base": [],
                         # TODO "custom_llm": "",
                     },
-                    "first_message": "",
+                    "first_message": assistant_data.first_message,
                     "language": assistant_data.language,
                 },
                 "tts": {
@@ -522,7 +718,6 @@ def create_assistant(
             },
             json=agent_data,
         )
-        print(response.json())
         elevenlabs_agent_id = response.json()["agent_id"] # see elevenlabs api docs
         response = database.create_elevenlabs_assistant(user_id, assistant_name, elevenlabs_agent_id)
 
@@ -632,6 +827,7 @@ def create_campaign(
     jwt_token: str,
     uploaded_file: Annotated[bytes, File()],
     file_name: str = Form(...),
+    campaign_name: str = Form(...),
     assistant_id: int = Form(...),
     assistant_type: str = Form(...),
     phone_number_id: int = Form(...),
@@ -657,6 +853,8 @@ def create_campaign(
         campaign_status,
         uploaded_file,
         file_name,
+        campaign_name,
+        assistant_type,
     )
 
     campaign_id = campaign_data["id"]
@@ -714,7 +912,9 @@ def create_campaign(
     jwt_token: str,
     uploaded_file: Annotated[bytes, File()],
     file_name: str = Form(...),
+    campaign_name: str = Form(...),
     assistant_id: int = Form(...),
+    assistant_type: str = Form(...),
     campaign_id: int = Form(...),
     phone_number_id: int = Form(...),
     campaign_type: str = Form(...),
@@ -740,6 +940,8 @@ def create_campaign(
         campaign_status,
         uploaded_file,
         file_name,
+        campaign_name,
+        assistant_type,
     )
 
     return campaign_data
@@ -838,6 +1040,7 @@ def get_assisant_knowledge(
 
 @app.get("/api/twilio-records")
 def fetch_twilio_records(phone_number: str, account_sid: str, auth_token: str, inbound: bool, limit: int):
+    # TODO извлекать логи из бд и запись с твилио
     print(account_sid, auth_token)
     try:
         client = Client(account_sid, auth_token)
@@ -853,6 +1056,8 @@ def fetch_twilio_records(phone_number: str, account_sid: str, auth_token: str, i
         return recordings
     except Exception as e:
         return {"error": e}
+
+# TODO эндпоинт для получения эксель файла с логами
 
 if __name__ == "__main__":
     import uvicorn
