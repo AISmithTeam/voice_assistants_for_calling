@@ -570,7 +570,7 @@ async def handle_media_stream_eleven(websocket: WebSocket, agent_id: str):
                             mark_queue.pop(0)
                 # to catch disconnection
                 await websocket.receive()
-            except (WebSocketDisconnect, ConnectionClosed, RuntimeError):
+            except (WebSocketDisconnect, RuntimeError):
                 print("DISCONNECTED")
                 if openai_ws.open:
                     await openai_ws.close()

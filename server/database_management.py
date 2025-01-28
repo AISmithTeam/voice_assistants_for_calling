@@ -727,6 +727,7 @@ class Database:
                     "customer_phone_number": customer_phone_number,
                 }
             )
+            connection.commit()
             connection.close()
 
     def update_call_log(
@@ -751,7 +752,7 @@ class Database:
                     "call_sid": call_sid,
                 }
             )
-
+            connection.commit()
             connection.close()
 
     def get_call_logs(self, user_id: int):
