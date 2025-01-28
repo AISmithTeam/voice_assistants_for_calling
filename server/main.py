@@ -199,7 +199,7 @@ async def handle_incoming_call(
 ):
     """Handle incoming call and return TwiML response to connect to Media Stream."""
     response = VoiceResponse()
-    call_data = (await request.form()) .__dict__['_dict']
+    call_data = (await request.form()).__dict__['_dict']
     host = request.url.hostname
     connect = Connect()
 

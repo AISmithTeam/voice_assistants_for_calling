@@ -708,14 +708,14 @@ class Database:
         customer_phone_number: str = None,
     ):
         create_call_log_query = ("INSERT INTO call_logs"
-                                 "(client_id, call_sid, call_type, phone_number_id, assistant_type, assistant_name, campaign_name, account_sid, auth_token, customer_phone_number)"
-                                 "VALUES (%(client_id)s, %(call_sid)s, %(call_type)s, %(phone_number_id)s, %(assistant_type)s, %(assistant_name)s, %(campaign_name)s, %(account_sid)s, %(auth_token)s, %(customer_phone_number)s)")
+                                 "(user_id, call_sid, call_type, phone_number_id, assistant_type, assistant_name, campaign_name, account_sid, auth_token, customer_phone_number)"
+                                 "VALUES (%(user_id)s, %(call_sid)s, %(call_type)s, %(phone_number_id)s, %(assistant_type)s, %(assistant_name)s, %(campaign_name)s, %(account_sid)s, %(auth_token)s, %(customer_phone_number)s)")
         with mysql.connector.connect(**self.connection_parameters) as connection:
             cursor= connection.cursor(buffered=True)
             cursor.execute(
                 create_call_log_query,
                 {
-                    "client_id": user_id,
+                    "user_id": user_id,
                     "call_sid": call_sid,
                     "call_type": call_type,
                     "phone_number_id": phone_number_id,
