@@ -387,8 +387,8 @@ class Database:
                     "file_name": campaign[13],
                     "created_at": campaign[11],
                     "updated_at": campaign[12],
-                    "campaign_name": campaign[13],
-                    "assistant_type": campaign[14],
+                    "campaign_name": campaign[14],
+                    "assistant_type": campaign[15],
                 } for campaign in cursor.fetchall()
             ]
             connection.close()
