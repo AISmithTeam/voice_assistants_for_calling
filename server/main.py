@@ -1060,7 +1060,8 @@ def fetch_twilio_records(
         client = Client(log["account_sid"], log["auth_token"])
         call_data = client.calls(log["call_sid"]).fetch()
         log["recording_url"] = call_data.subresource_uris["recordings"]
-        print(log["account_sid"], log["auth_token"], call_data)
+        log["duration"] = call_data.duration
+        log["cost"] = call_data.duration / 60 * PER_MINUTE_PRICING
         log["customer_phone_number"] = call_data._from if log["call_type"] == "inbound" else call_data.to
         logs.append(log)
     return logs
