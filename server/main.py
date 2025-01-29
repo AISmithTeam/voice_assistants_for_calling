@@ -119,7 +119,7 @@ def get_current_user(
     try:
         payload = jwt.decode(jwt_token, settings.SECRET_KEY, algorithms=["HS256"])
         email: str = payload.get("email")
-        debug_sequence_numbers = []        
+        debug_sequence_numbers = []
         if not email:
             raise credentials_exception
         token_data = TokenData(email=email)
@@ -132,7 +132,7 @@ def get_current_user(
 
 @app.post('/api/signup', response_model=UserSchema)
 def signup(
-    payload: CreateUserSchema = Body(), 
+    payload: CreateUserSchema = Body(),
     session: Session=Depends(get_db)
 ):
     """Processes request to register user account."""
@@ -1059,8 +1059,9 @@ def fetch_twilio_records(
     for log in database.get_call_logs(user_id):
         client = Client(log["account_sid"], log["auth_token"])
         call_data = client.calls(log["call_sid"]).fetch()
-        log["recording_url"] = call_data["subresource_uris"]["recordings"]
-        log["customer_phone_number"] = call_data["from"] if log["call_type"] == "inbound" else call_data["to"]
+        log["recording_url"] = call_data.subresource_uris["recordings"]
+        print(log["account_sid"], log["auth_token"], call_data)
+        log["customer_phone_number"] = call_data._from if log["call_type"] == "inbound" else call_data.to
         logs.append(log)
     return logs
 
