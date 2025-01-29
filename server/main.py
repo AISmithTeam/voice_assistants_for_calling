@@ -1053,11 +1053,17 @@ def fetch_twilio_records(
     jwt_token: str,
     session: Session=Depends(get_db),
 ):
-    # TODO извлекать логи из бд и запись с твилио
     user = get_current_user(jwt_token, session)
     user_id = user.user_id
+    logs = []
+    for log in database.get_call_logs(user_id):
+        client = Client(log["account_sid"], log["auth_token"])
+        call_data = client.calls(log["call_sid"]).fetch()
+        log["recording_url"] = call_data["subresource_uris"]["recordings"]
+        log["customer_phone_number"] = call_data["from"] if log["call_type"] == "inbound" else call_data["to"]
+        logs.append(log)
+    return logs
 
-    return database.get_call_logs(user_id)
 # TODO эндпоинт для получения эксель файла с логами
 
 if __name__ == "__main__":
