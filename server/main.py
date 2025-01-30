@@ -320,7 +320,7 @@ async def make_outgoing_call(
 @app.post('/api/twilio-callback')
 async def make_recall(request: Request):
     # answering mashine detected
-    call_data = await (request.form()).__dict__['_dict']
+    call_data = (await request.form()).__dict__['_dict']
 
     if call_data['AnsweredBy'] == 'machine_start' or call_data['CallStatus'] not in [
         "answered",
