@@ -32,6 +32,9 @@ from jwt.exceptions import InvalidTokenError
 
 from actions import add_appointment_to_airtable
 
+import pytz
+from datetime import datetime
+
 load_dotenv(override=True)
 
 # Set up Twilio client
@@ -177,14 +180,27 @@ async def run_campaign(campaign_id, jwt_token, session: Session = Depends(get_db
     clients_data = pd.read_csv(BytesIO(campaign_data["uploaded_file"]))
     clients_data["to_number"] = clients_data["to_number"].astype(str)
 
-    for _, client in clients_data.iterrows():
-        await make_outgoing_call(
-                to_number=client.to_number,
-                campaign_id=campaign_id,
-                from_number=phone_number_data["phone_number"],
-                account_sid=phone_number_data["account_sid"],
-                auth_token=phone_number_data["auth_token"],
-            )
+    start_time = campaign_data['start_time']
+    start_time = datetime.strptime(start_time, '%H:%M:%S')
+    end_time = campaign_data['end_time']
+    end_time = datetime.strptime(end_time, '%H:%M:%S')
+
+    # FIXME должен быть произвольный часовой пояс сейчас пока дубайский
+    current_time = datetime.now(pytz.timezone('Etc/GMT-4')).strftime('%H:%M:%S')
+    current_time = datetime.strptime(current_time, '%H:%M:%S')
+
+    if current_time < end_time and current_time > start_time:
+        for _, client in clients_data.iterrows():
+            if current_time < end_time and current_time > start_time:
+                await make_outgoing_call(
+                        to_number=client.to_number,
+                        campaign_id=campaign_id,
+                        from_number=phone_number_data["phone_number"],
+                        account_sid=phone_number_data["account_sid"],
+                        auth_token=phone_number_data["auth_token"],
+                    )
+            else:
+                break
 
 class HandleCall(BaseModel):
     to_number: str
@@ -294,16 +310,6 @@ async def make_outgoing_call(
 
         f.write("call created")
 
-        # TODO добавить параметр "statusCallback" в incoming-call для перезвонов и campaign_run_id в таблице call_logs
-        # campaign_run_id будет использоватся для подсчета текущего количества звонков на номер в текущем запуске кампании
-        # 1) создаем звонок с callback эндпоинтом для перезванивания в случае, если клиент не поднял
-        # 2) создаем call recource этого звонка
-        # 3) создаем запись в таблице call_logs (добавляя уникальный campaign_run_id)
-        # 4) пока звонок идет продолжаем создавать еще звонки и записи
-        # 5) когда ловим callback смотрим статус, если клиент не поднял:
-        #    - находим в call_logs лог с полученым callSid, интересует его campaign_run_id и его номер телефона
-        #    - находим в call_logs количество логов с тем же номером и campaign_run_id
-        #    - если это количество не превышает max_recalls - переходим к п. 1 для этого же номера иначе ничего не делаем, просто возвращаемся из callback
         call = twilio_client.calls.create(
             to=to_number,
             from_=from_number,
