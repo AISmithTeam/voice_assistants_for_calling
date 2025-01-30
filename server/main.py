@@ -183,11 +183,11 @@ async def run_campaign(campaign_id, jwt_token, session: Session = Depends(get_db
     start_time = campaign_data['start_time']
     end_time = campaign_data['end_time']
 
-    today = datetime.today(pytz.timezone('Etc/GMT-4'))
+    today = datetime.today()
     start_time = today + start_time
     end_time = today + end_time
-    start_time = start_time.strftime('%H:%M:%S')
-    end_time = end_time.strftime('%H:%M:%S')
+    start_time = start_time.astimezone(pytz.timezone('Etc/GMT-4')).strftime('%H:%M:%S')
+    end_time = end_time.astimezone(pytz.timezone('Etc/GMT-4')).strftime('%H:%M:%S')
 
     print(today)
     print(start_time)
