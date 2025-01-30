@@ -181,13 +181,23 @@ async def run_campaign(campaign_id, jwt_token, session: Session = Depends(get_db
     clients_data["to_number"] = clients_data["to_number"].astype(str)
 
     start_time = campaign_data['start_time']
-    start_time = datetime.strptime(start_time, '%H:%M:%S')
     end_time = campaign_data['end_time']
-    end_time = datetime.strptime(end_time, '%H:%M:%S')
+
+    today = datetime.today(pytz.timezone('Etc/GMT-4'))
+    start_time = today + start_time
+    end_time = today + end_time
+    start_time = start_time.strftime('%H:%M:%S')
+    end_time = end_time.strftime('%H:%M:%S')
+
+    print(today)
+    print(start_time)
+    print(end_time)
 
     # FIXME должен быть произвольный часовой пояс сейчас пока дубайский
     current_time = datetime.now(pytz.timezone('Etc/GMT-4')).strftime('%H:%M:%S')
     current_time = datetime.strptime(current_time, '%H:%M:%S')
+
+    print(current_time)
 
     if current_time < end_time and current_time > start_time:
         for _, client in clients_data.iterrows():
