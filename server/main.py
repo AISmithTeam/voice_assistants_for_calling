@@ -303,6 +303,7 @@ async def make_outgoing_call(
         call = twilio_client.calls.create(
             to=to_number,
             from_=from_number,
+            status_callback=f"https://{HOST}/api/twilio-callback",
             url=f"https://{HOST}/api/incoming-call?campaign_id={campaign_id}&customer_phone_number={to_number}&call_type=outbound"
         )
         f.write("oudbound call function returned\n")
@@ -313,7 +314,7 @@ async def make_outgoing_call(
 
 @app.post('/api/twilio-callback')
 async def make_recall(request: Request):
-    print('CALLBACK: ', request.values.get("To", None))
+    print('CALLBACK: ', (await request.form()).__dict__['_dict'])
 
 
 @app.websocket("/stream/media-stream-openai-realtime")
