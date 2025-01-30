@@ -198,11 +198,7 @@ async def handle_incoming_call(
     customer_phone_number: str = None
 ):
     """Handle incoming call and return TwiML response to connect to Media Stream."""
-    response = VoiceResponse()
     call_data = (await request.form()).__dict__['_dict']
-    print("CALL DATA: ", call_data)
-    host = request.url.hostname
-    connect = Connect()
 
     campaign_data = database.get_campaign(campaign_id=campaign_id)
 
@@ -216,13 +212,10 @@ async def handle_incoming_call(
     elif campaign_data["assistant_type"] == "elevenlabs":
         stream_type = f"media-stream-elevenlabs/{assistant_data["elevenlabs_agent_id"]}"
 
-    stream = connect.stream(url=f'wss://{HOST}/stream/{stream_type}')
-    stream.parameter(name='campaign_id', value=campaign_id)
-    response.append(connect)
-    
     phone_number_data = database.get_phone_number(phone_number_id=campaign_data["phone_number_id"])
     database.create_call_log(
         user_id=campaign_data["user_id"],
+        campaign_id=campaign_id,
         call_sid=call_data['CallSid'],
         call_type=call_type,
         phone_number_id=campaign_data["phone_number_id"],
@@ -233,6 +226,15 @@ async def handle_incoming_call(
         auth_token=phone_number_data["auth_token"],
         customer_phone_number=customer_phone_number,
     )
+
+    if call_data["AnsweredBy"] == "machine_start":
+        make_recall(request)
+
+    response = VoiceResponse()
+    connect = Connect()
+    stream = connect.stream(url=f'wss://{HOST}/stream/{stream_type}')
+    stream.parameter(name='campaign_id', value=campaign_id)
+    response.append(connect)
 
     twilio_auth_token = phone_number_data["auth_token"]
     asyncio.create_task(help_create_recording(call_sid=call_data['CallSid'], account_sid=call_data['AccountSid'], auth_token=twilio_auth_token))
@@ -316,6 +318,39 @@ async def make_outgoing_call(
 
 @app.post('/api/twilio-callback')
 async def make_recall(request: Request):
+    # answering mashine detected
+    call_data = await (request.form()).__dict__['_dict']
+
+    if call_data['AnsweredBy'] == 'machine_start' or call_data['CallStatus'] not in [
+        "answered",
+        "completed",
+        "queued",
+        "initiated",
+        "ringing",
+        "in-progress",
+    ]:
+        log_of_the_call = database.get_call_log(call_sid=call_data['CallSid'])
+
+        account_sid=call_data['AccountSid']
+        auth_token=log_of_the_call["auth_token"]
+
+        make_outgoing_call(
+            to_number=call_data["To"],
+            campaign_id=log_of_the_call['campaign_id'],
+            from_number=call_data["From"],
+            account_sid=account_sid,
+            auth_token=auth_token
+        )
+        # TODO добавить параметр "statusCallback" в incoming-call для перезвонов и campaign_run_id в таблице call_logs
+        # campaign_run_id будет использоватся для подсчета текущего количества звонков на номер в текущем запуске кампании
+        # 1) создаем звонок с callback эндпоинтом для перезванивания в случае, если клиент не поднял
+        # 2) создаем call recource этого звонка
+        # 3) создаем запись в таблице call_logs (добавляя уникальный campaign_run_id)
+        # 4) пока звонок идет продолжаем создавать еще звонки и записи
+        # 5) когда ловим callback смотрим статус, если клиент не поднял:
+        #    - находим в call_logs лог с полученым callSid, интересует его campaign_run_id и его номер телефона
+        #    - находим в call_logs количество логов с тем же номером и campaign_run_id
+        #    - если это количество не превышает max_recalls - переходим к п. 1 для этого же номера иначе ничего не делаем, просто возвращаемся из callback
     print('CALLBACK: ', (await request.form()).__dict__['_dict'])
 
 

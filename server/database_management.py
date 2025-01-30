@@ -697,6 +697,7 @@ class Database:
     def create_call_log(
         self,
         user_id: int,
+        campaign_id,
         call_sid: str,
         call_type: str,
         phone_number_id: int,
@@ -708,15 +709,16 @@ class Database:
         customer_phone_number: str = None,
     ):
         create_call_log_query = ("INSERT INTO call_logs"
-                                 "(user_id, call_sid, call_type, phone_number_id, assistant_type, assistant_name, campaign_name, account_sid, auth_token, customer_phone_number)"
-                                 "VALUES (%(user_id)s, %(call_sid)s, %(call_type)s, %(phone_number_id)s, %(assistant_type)s, %(assistant_name)s, %(campaign_name)s, %(account_sid)s, %(auth_token)s, %(customer_phone_number)s)")
+                                 "(user_id, campaign_id, call_sid, call_type, phone_number_id, assistant_type, assistant_name, campaign_name, account_sid, auth_token, customer_phone_number)"
+                                 "VALUES (%(user_id)s, %(campaign_id)s, %(call_sid)s, %(call_type)s, %(phone_number_id)s, %(assistant_type)s, %(assistant_name)s, %(campaign_name)s, %(account_sid)s, %(auth_token)s, %(customer_phone_number)s)")
         with mysql.connector.connect(**self.connection_parameters) as connection:
-            cursor= connection.cursor(buffered=True)
+            cursor = connection.cursor(buffered=True)
             cursor.execute(
                 create_call_log_query,
                 {
                     "user_id": user_id,
                     "call_sid": call_sid,
+                    "campaign_id": campaign_id,
                     "call_type": call_type,
                     "phone_number_id": phone_number_id,
                     "assistant_type": assistant_type,
@@ -764,6 +766,7 @@ class Database:
             call_logs = [
                 {
                     "call_id": log[0],
+                    "campaign_id": log[1],
                     "user_id": log[3],
                     "call_type": log[4],
                     "duration": log[7],
@@ -783,3 +786,33 @@ class Database:
             connection.close()
         
         return call_logs
+
+    def get_call_log(self, call_sid: str):
+        get_call_log_query = (f"SELECT * FROM call_logs WHERE call_sid={call_sid}")
+        with mysql.connector.connect(**self.connection_parameters) as connection:
+            cursor = connection.cursor(buffered=True)
+            cursor.execute(get_call_log_query)
+
+            call_log = [
+                {
+                    "call_id": log[0],
+                    "campaign_id": log[1],
+                    "user_id": log[3],
+                    "call_type": log[4],
+                    "duration": log[7],
+                    "call_sid": log[13],
+                    "assistant_type": log[14],
+                    "assistant_name": log[15],
+                    "campaign_name": log[16],
+                    "account_sid": log[17],
+                    "auth_token": log[18],
+                    "cost": log[19],
+                    "recording_url": log[20],
+                    "phone_number_id": log[21],
+                    "customer_phone_number": log[22],
+                    # TODO добавить call_type, customer_phone_number, start_time, summary, transcription и success_score, и elevenlabs_conversation_id чтобы их получать (его устанавливать в вебсокете см. документацию 11labs)
+                } for log in cursor.fetchall()
+            ][0]
+            connection.close()
+        
+        return call_log
