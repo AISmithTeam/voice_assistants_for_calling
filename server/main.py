@@ -229,6 +229,7 @@ async def handle_incoming_call(
 
     if call_data["AnsweredBy"] == "machine_start":
         make_recall(request)
+        return
 
     response = VoiceResponse()
     connect = Connect()
