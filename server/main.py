@@ -337,7 +337,7 @@ async def make_recall(request: Request):
         account_sid=call_data['AccountSid']
         auth_token=log_of_the_call["auth_token"]
 
-        make_outgoing_call(
+        await make_outgoing_call(
             to_number=call_data["To"],
             campaign_id=log_of_the_call['campaign_id'],
             from_number=call_data["From"],
