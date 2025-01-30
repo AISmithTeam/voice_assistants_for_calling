@@ -348,8 +348,8 @@ async def make_recall(request: Request):
             auth_token=auth_token
         )
 
-    await delay_coroutine
-    await create_call_coroutine
+        await delay_coroutine
+        await create_call_coroutine
 
 
 @app.websocket("/stream/media-stream-openai-realtime")
