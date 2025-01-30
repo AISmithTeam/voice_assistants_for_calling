@@ -304,7 +304,7 @@ async def make_outgoing_call(
         call = twilio_client.calls.create(
             to=to_number,
             from_=from_number,
-            machine_detection="Enable"
+            machine_detection="Enable",
             status_callback=f"https://{HOST}/api/twilio-callback",
             url=f"https://{HOST}/api/incoming-call?campaign_id={campaign_id}&customer_phone_number={to_number}&call_type=outbound"
         )
