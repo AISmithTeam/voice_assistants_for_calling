@@ -337,14 +337,19 @@ async def make_recall(request: Request):
         account_sid=call_data['AccountSid']
         auth_token=log_of_the_call["auth_token"]
 
-        await make_outgoing_call(
+        campaign_data = database.get_campaign(campaign_id=log_of_the_call['campaign_id'])
+
+        delay_coroutine = asyncio.sleep(campaign_data['recall_interval'])
+        create_call_coroutine = make_outgoing_call(
             to_number=call_data["To"],
             campaign_id=log_of_the_call['campaign_id'],
             from_number=call_data["From"],
             account_sid=account_sid,
             auth_token=auth_token
         )
-    print('CALLBACK: ', (await request.form()).__dict__['_dict'])
+
+    await delay_coroutine
+    await create_call_coroutine
 
 
 @app.websocket("/stream/media-stream-openai-realtime")
