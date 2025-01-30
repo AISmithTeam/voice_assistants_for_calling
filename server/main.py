@@ -1112,6 +1112,15 @@ def fetch_twilio_records(
         logs.append(log)
     return logs
 
+@app.get('/api/call-log')
+async def fetch_call_log(
+    jwt_token: str,
+    call_sid: str,
+    session: Session=Depends(get_db),
+):
+    get_current_user(jwt_token=jwt_token, session=session)
+    return database.get_call_log(call_sid=call_sid)
+
 # TODO эндпоинт для получения эксель файла с логами
 
 if __name__ == "__main__":
