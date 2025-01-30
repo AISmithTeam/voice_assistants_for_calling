@@ -309,6 +309,7 @@ async def make_outgoing_call(
             from_=from_number,
             machine_detection="Enable",
             status_callback=f"https://{HOST}/api/twilio-callback",
+            status_callback_event = ["completed"],
             url=f"https://{HOST}/api/incoming-call?campaign_id={campaign_id}&customer_phone_number={to_number}&call_type=outbound"
         )
         f.write("oudbound call function returned\n")
@@ -321,6 +322,7 @@ async def make_outgoing_call(
 async def make_recall(request: Request):
     # answering mashine detected
     call_data = (await request.form()).__dict__['_dict']
+    print('CALLBACK: ', call_data)
 
     if call_data['AnsweredBy'] == 'machine_start' or call_data['CallStatus'] not in [
         "answered",

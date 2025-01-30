@@ -788,7 +788,7 @@ class Database:
         return call_logs
 
     def get_call_log(self, call_sid: str):
-        get_call_log_query = (f"SELECT * FROM call_logs WHERE call_sid={call_sid}")
+        get_call_log_query = (f"SELECT * FROM call_logs WHERE call_sid='{call_sid}'")
         with mysql.connector.connect(**self.connection_parameters) as connection:
             cursor = connection.cursor(buffered=True)
             cursor.execute(get_call_log_query)
