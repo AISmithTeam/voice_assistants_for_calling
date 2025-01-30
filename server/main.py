@@ -341,16 +341,6 @@ async def make_recall(request: Request):
             account_sid=account_sid,
             auth_token=auth_token
         )
-        # TODO добавить параметр "statusCallback" в incoming-call для перезвонов и campaign_run_id в таблице call_logs
-        # campaign_run_id будет использоватся для подсчета текущего количества звонков на номер в текущем запуске кампании
-        # 1) создаем звонок с callback эндпоинтом для перезванивания в случае, если клиент не поднял
-        # 2) создаем call recource этого звонка
-        # 3) создаем запись в таблице call_logs (добавляя уникальный campaign_run_id)
-        # 4) пока звонок идет продолжаем создавать еще звонки и записи
-        # 5) когда ловим callback смотрим статус, если клиент не поднял:
-        #    - находим в call_logs лог с полученым callSid, интересует его campaign_run_id и его номер телефона
-        #    - находим в call_logs количество логов с тем же номером и campaign_run_id
-        #    - если это количество не превышает max_recalls - переходим к п. 1 для этого же номера иначе ничего не делаем, просто возвращаемся из callback
     print('CALLBACK: ', (await request.form()).__dict__['_dict'])
 
 
