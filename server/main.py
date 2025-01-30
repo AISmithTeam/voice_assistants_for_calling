@@ -200,6 +200,7 @@ async def handle_incoming_call(
     """Handle incoming call and return TwiML response to connect to Media Stream."""
     response = VoiceResponse()
     call_data = (await request.form()).__dict__['_dict']
+    print("CALL DATA: ", call_data)
     host = request.url.hostname
     connect = Connect()
 
@@ -303,6 +304,7 @@ async def make_outgoing_call(
         call = twilio_client.calls.create(
             to=to_number,
             from_=from_number,
+            machine_detection="Enable"
             status_callback=f"https://{HOST}/api/twilio-callback",
             url=f"https://{HOST}/api/incoming-call?campaign_id={campaign_id}&customer_phone_number={to_number}&call_type=outbound"
         )
