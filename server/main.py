@@ -55,7 +55,7 @@ LOG_EVENT_TYPES = [
 ]
 SHOW_TIMING_MATH = False
 HOST = "api.voice.aismith.co"
-PER_MINUTE_PRICING = os.getenv('PER_MINUTE_PRICING')
+PER_MINUTE_PRICING = float(os.getenv('PER_MINUTE_PRICING'))
 
 app = FastAPI(openapi_url="/api/openapi.json", docs_url="/api/docs")
 
@@ -1078,7 +1078,7 @@ def fetch_twilio_records(
         call_data = client.calls(log["call_sid"]).fetch()
         log["recording_url"] = call_data.subresource_uris["recordings"]
         log["duration"] = call_data.duration
-        log["cost"] = call_data.duration / 60 * PER_MINUTE_PRICING
+        log["cost"] = float(call_data.duration) / 60.0 * PER_MINUTE_PRICING
         log["customer_phone_number"] = call_data._from if log["call_type"] == "inbound" else call_data.to
         logs.append(log)
     return logs
