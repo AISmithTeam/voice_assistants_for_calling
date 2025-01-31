@@ -187,7 +187,14 @@ async def run_campaign(campaign_id, jwt_token, session: Session = Depends(get_db
     current_time = datetime.now(pytz.timezone('Etc/GMT-4')).strftime('%H:%M:%S')
     current_time = datetime.strptime(current_time, '%H:%M:%S')
 
-    print('CURRENT_TIME: ', current_time)
+    # update campaign status and renmame some fields for function (definetely need to fix this)
+    campaign_data.pop('id')
+    campaign_data.pop('status')
+    campaign_data["campaign_id"] = campaign_id
+    campaign_data["campaign_status"] = "running"
+    campaign_data["campaign_type"] = campaign_data.pop("type")
+    campaign_data.pop('updated_at')
+    campaign_data.pop('created_at')
 
     if current_time < end_time and current_time > start_time:
         for _, client in clients_data.iterrows():
