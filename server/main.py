@@ -929,7 +929,7 @@ async def create_campaign(
         max_recalls=max_recalls,
         recall_interval=recall_interval,
         campaign_status=campaign_status,
-        uploaded_file=await uploaded_file.read(),
+        uploaded_file=uploaded_file.file.read(),
         file_name=file_name,
         campaign_name=campaign_name,
         assistant_type=assistant_type,
