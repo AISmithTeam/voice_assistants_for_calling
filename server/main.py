@@ -903,7 +903,7 @@ def create_campaign_days_of_week(
 async def create_campaign(
     #campaign_data: CampaignData,
     jwt_token: str,
-    uploaded_file: Annotated[bytes, File()],
+    uploaded_file: UploadFile = File(...),
     file_name: str = Form(...),
     campaign_name: str = Form(...),
     assistant_id: int = Form(...),
