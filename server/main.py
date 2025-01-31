@@ -181,7 +181,9 @@ async def run_campaign(campaign_id, jwt_token, session: Session = Depends(get_db
     clients_data["to_number"] = clients_data["to_number"].astype(str)
 
     start_time = str(campaign_data['start_time'])
+    start_time = datetime.strptime(start_time, '%H:%M:%S')
     end_time = str(campaign_data['end_time'])
+    end_time = datetime.strptime(end_time, '%H:%M:%S')
 
     # FIXME должен быть произвольный часовой пояс сейчас пока дубайский
     current_time = datetime.now(pytz.timezone('Etc/GMT-4')).strftime('%H:%M:%S')
