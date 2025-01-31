@@ -177,7 +177,7 @@ async def run_campaign(campaign_id, jwt_token, session: Session = Depends(get_db
     get_current_user(jwt_token, session)
     campaign_data = database.get_campaign(campaign_id)
     phone_number_data = database.get_phone_number(campaign_data["phone_number_id"])
-    clients_data = pd.read_csv(BytesIO(campaign_data["uploaded_file"]))
+    clients_data = pd.read_excel(BytesIO(campaign_data["uploaded_file"]))
     clients_data["to_number"] = clients_data["to_number"].astype(str)
 
     start_time = str(campaign_data['start_time'])

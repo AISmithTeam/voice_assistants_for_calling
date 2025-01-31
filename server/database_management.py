@@ -4,6 +4,9 @@ import datetime
 import requests
 import os
 
+import pandas as pd
+from io import BytesIO
+
 load_dotenv(override=True)
 
 class Database:
@@ -383,7 +386,7 @@ class Database:
                     "max_recalls": campaign[7],
                     "recall_interval": campaign[8],
                     "status": campaign[9],
-                    "uploaded_file": campaign[10],
+                    "uploaded_file": BytesIO(campaign[10]),
                     "file_name": campaign[13],
                     "created_at": campaign[11],
                     "updated_at": campaign[12],
