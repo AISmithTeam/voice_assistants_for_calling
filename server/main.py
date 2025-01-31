@@ -180,18 +180,8 @@ async def run_campaign(campaign_id, jwt_token, session: Session = Depends(get_db
     clients_data = pd.read_csv(BytesIO(campaign_data["uploaded_file"]))
     clients_data["to_number"] = clients_data["to_number"].astype(str)
 
-    start_time = campaign_data['start_time']
-    end_time = campaign_data['end_time']
-
-    today = datetime.today()
-    start_time = today + start_time
-    end_time = today + end_time
-    start_time = start_time.astimezone(pytz.timezone('Etc/GMT-4')).strftime('%H:%M:%S')
-    end_time = end_time.astimezone(pytz.timezone('Etc/GMT-4')).strftime('%H:%M:%S')
-
-    print(today)
-    print(start_time)
-    print(end_time)
+    start_time = str(campaign_data['start_time'])
+    end_time = str(campaign_data['end_time'])
 
     # FIXME должен быть произвольный часовой пояс сейчас пока дубайский
     current_time = datetime.now(pytz.timezone('Etc/GMT-4')).strftime('%H:%M:%S')
