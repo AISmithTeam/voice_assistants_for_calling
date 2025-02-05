@@ -175,6 +175,7 @@ async def index_page():
 @app.post("/api/run-campaign")
 async def run_campaign(campaign_id, jwt_token, session: Session = Depends(get_db)):
     get_current_user(jwt_token, session)
+    database.update_campaign_status(campaign_id=campaign_id, status='running')
     campaign_data = database.get_campaign(campaign_id)
     phone_number_data = database.get_phone_number(campaign_data["phone_number_id"])
     clients_data = pd.read_excel(BytesIO(campaign_data["uploaded_file"]))
@@ -189,17 +190,12 @@ async def run_campaign(campaign_id, jwt_token, session: Session = Depends(get_db
     current_time = datetime.now(pytz.timezone('Etc/GMT-4')).strftime('%H:%M:%S')
     current_time = datetime.strptime(current_time, '%H:%M:%S')
 
-    # update campaign status and renmame some fields for function (definetely need to fix this)
-    campaign_data.pop('id')
-    campaign_data.pop('status')
-    campaign_data["campaign_id"] = campaign_id
-    campaign_data["campaign_status"] = "running"
-    campaign_data["campaign_type"] = campaign_data.pop("type")
-    campaign_data.pop('updated_at')
-    campaign_data.pop('created_at')
-
     if current_time < end_time and current_time > start_time:
         for _, client in clients_data.iterrows():
+            campaign_data = database.get_campaign(campaign_id)
+            if campaign_data["status"] == 'stopped':
+                break
+
             if current_time < end_time and current_time > start_time:
                 await make_outgoing_call(
                         to_number=client.to_number,
@@ -210,6 +206,13 @@ async def run_campaign(campaign_id, jwt_token, session: Session = Depends(get_db
                     )
             else:
                 break
+
+
+@app.post('/api/stop-campaign')
+async def stop_campaign(campaign_id, jwt_token, session: Session = Depends(get_db)):
+    get_current_user(jwt_token, session)
+    return database.update_campaign_status(campaign_id=campaign_id, status='stopped')
+
 
 class HandleCall(BaseModel):
     to_number: str

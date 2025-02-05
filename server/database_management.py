@@ -423,6 +423,25 @@ class Database:
                 } for campaign in cursor.fetchall()
             ][0]
             return campaign
+
+    def update_campaign_status(
+        self,
+        campaign_id: int,
+        status: str,
+    ):
+        update_status_query = ("UPDATE campaigns "
+                               "SET campaign_status=%(campaign_status)s"
+                               "WHERE campaign_id=%(campaign_id)s")
+        with mysql.connector.connect(**self.connection_parameters) as connection:
+            cursor = connection.cursor(buffered=True)
+            cursor.execute(update_status_query, (status, campaign_id))
+            connection.commit()
+            connection.close()
+        
+        return {
+            "campaign_id": campaign_id,
+            "status": status,
+        }
     
     def update_campaign(
         self,
