@@ -432,16 +432,17 @@ class Database:
         update_status_query = ("UPDATE campaigns "
                                "SET campaign_status=%(campaign_status)s"
                                "WHERE campaign_id=%(campaign_id)s")
+        status_data = {
+            "campaign_id": campaign_id,
+            "campaign_status": status,
+        }
         with mysql.connector.connect(**self.connection_parameters) as connection:
             cursor = connection.cursor(buffered=True)
-            cursor.execute(update_status_query, (status, campaign_id))
+            cursor.execute(update_status_query, status_data)
             connection.commit()
             connection.close()
         
-        return {
-            "campaign_id": campaign_id,
-            "status": status,
-        }
+        return status_data
     
     def update_campaign(
         self,
