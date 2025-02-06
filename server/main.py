@@ -357,6 +357,9 @@ async def make_recall(request: Request):
 
         campaign_data = database.get_campaign(campaign_id=log_of_the_call['campaign_id'])
 
+        if campaign_data["status"] == 'stopped':
+            return
+
         delay_coroutine = asyncio.sleep(campaign_data['recall_interval'])
         create_call_coroutine = make_outgoing_call(
             to_number=call_data["To"],
