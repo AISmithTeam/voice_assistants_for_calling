@@ -175,6 +175,7 @@ class Database:
                 elevenlabs_assistant["llm"] = agent_info["conversation_config"]["agent"]["prompt"]["llm"]
                 elevenlabs_assistant["tts_model"] = agent_info["conversation_config"]["tts"]["model_id"]
                 elevenlabs_assistant["stt_model"] = "elevenlabs-asr"
+                elevenlabs_assistant["first_message"] = agent_info["conversation_config"]["agent"]["first_message"]
                 elevenlabs_assistant["prompt"] = agent_info["conversation_config"]["agent"]["prompt"]["prompt"]
                 elevenlabs_assistant["voice"] = agent_info["conversation_config"]["tts"]["voice_id"] # convert id to name
                 elevenlabs_assistants.append(elevenlabs_assistant)

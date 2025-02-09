@@ -868,7 +868,7 @@ def update_assistant(
             voice=voice,
             uploaded_files=uploaded_files,
         )
-    if assistant_data.assistant_type == "eleven":
+    if assistant_data.assistant_type == "elevenlabs":
         # agent_data = elevenlabs api call payload
         # response = api call to elevenlabs
         # elevenlabs_agent_id = response["id"] # see elevenlabs api docs
