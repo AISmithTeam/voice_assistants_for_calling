@@ -785,6 +785,9 @@ def create_assistant(
                     "first_message": assistant_data.first_message,
                     "language": assistant_data.language,
                 },
+                "asr": {
+                    "user_input_audio_format": "ulaw_8000",
+                },
                 "tts": {
                     "model_id": assistant_data.tts_model,
                     "agent_output_audio_format": "ulaw_8000",
