@@ -378,7 +378,7 @@ class Database:
                 {
                     "id": campaign[0],
                     "user_id": campaign[1],
-                    "assistant_id": campaign[2],
+                    "assistant_id": campaign[16] if campaign[15] == "elevenlabs" else campaign[2],
                     "phone_number_id": campaign[3],
                     "type": campaign[4],
                     "days_of_week": self.get_campaign_days_of_week(campaign[0]),
@@ -408,7 +408,7 @@ class Database:
                 {
                     "id": campaign[0],
                     "user_id": campaign[1],
-                    "assistant_id": campaign[2],
+                    "assistant_id": campaign[16] if campaign[15] == "elevenlabs" else campaign[2],
                     "phone_number_id": campaign[3],
                     "type": campaign[4],
                     "start_time": campaign[5],
