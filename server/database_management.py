@@ -325,11 +325,11 @@ class Database:
     ):
         with mysql.connector.connect(**self.connection_parameters) as connection:
             cursor = connection.cursor(buffered=True)
+            agent_fk = "elevenlabs_agent_id" if assistant_type == "elevenlabs" else "openai_agent_id"
             add_campaign = ("INSERT INTO campaigns"
-                            "(user_id, %(agent_fk)s, phone_number_id, campaign_type, start_time, end_time, max_recalls, recall_interval, campaign_status, uploaded_file, file_name, campaign_name, assistant_type)"
+                            f"(user_id, {agent_fk}, phone_number_id, campaign_type, start_time, end_time, max_recalls, recall_interval, campaign_status, uploaded_file, file_name, campaign_name, assistant_type)"
                             "VALUES (%(user_id)s, %(assistant_id)s, %(phone_number_id)s, %(campaign_type)s, %(start_time)s, %(end_time)s, %(max_recalls)s, %(recall_interval)s, %(campaign_status)s, %(uploaded_file)s, %(file_name)s, %(campaign_name)s, %(assistant_type)s)")
             campaign_data = {
-                "agent_fk": "elevenlabs_agent_id" if assistant_type == "elevenlabs" else "openai_agent_id",
                 "user_id": user_id,
                 "assistant_id": assistant_id,
                 "phone_number_id": phone_number_id,
